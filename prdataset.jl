@@ -1,4 +1,4 @@
-using Plots
+export prdataset,renumlab,isvector,iscategorical,getlabels,classsizes,setident,genlab,scatterd,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct prdataset
@@ -289,34 +289,3 @@ function gendatsin(n=40,s=0.1)
    return prdataset(x,y,"Sinusoidal dataset")
 end
 
-# some test cases:
-#
-# Labels
-y = [-1 -1 1 1 -1];
-lab,lablist = renumlab(y)
-
-y = ["apple" "apple" "pear"]
-lab,lablist = renumlab(y)
-
-lab = genlab([3;4])
-
-#y = randn(10,1)
-#lab,lablist = renumlab(y) # this should fail
-
-# Dataset
-X = randn(10,2)
-y = [-ones(Int,5); ones(Int,5)]
-a = prdataset(X,y)
-# subselect
-b = a[1:4,:]
-# concatenate
-c = [a;b]
-# The same for a regression problem
-d = prdataset(randn(5,3),randn(5,1));
-e = [d;d]
-
-# make and show
-a = gendats([20 10])
-scatterd(a)
-
-# 
