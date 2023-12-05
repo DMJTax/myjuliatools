@@ -173,14 +173,26 @@ end
 function Base.size(a::prdataset)
    return size(a.data)
 end
+# Important definitions of selection of subdataset and dataset
+# concatenation
+#
 # getindex and setindex!
 function Base.getindex(a::prdataset,I1,I2)
-   # probably need to check if it is all proper?
+   # probably need to check if I1,I2 are all proper?
+   # classification or regression datasets?
    if (a.nlab==nothing)
-      return prdataset(a.data[I1,I2],a.targets[I1,:], nothing, nothing, a.name)
+      out = prdataset(a.data[I1,I2],a.targets[I1,:], nothing, nothing, a.name)
    else
-      return prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist,a.name)
+      out = prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist,a.name)
    end
+   # The identifies, if defined:
+   if (a.id==nothing)
+      id = nothing
+   else
+      id = a.id[I1]
+   end
+   setident!(out,id)
+   return out
 end
 function Base.vcat(a::prdataset, b::prdataset)
    if size(a,2) != size(b,2)
@@ -190,13 +202,34 @@ function Base.vcat(a::prdataset, b::prdataset)
    if (a.nlab == nothing) # we have a regression dataset
       # concat the targets
       newtargets = [a.targets; b.targets]
-      return prdataset(X,newtargets,nothing,nothing,a.name)
+      out = prdataset(X,newtargets,nothing,nothing,a.name)
    else 
       # make sure the lablist are consistent
       nlab1,nlab2,lablist = renumlab(a.lablist[a.nlab], b.lablist[b.nlab])
-      return prdataset(X,nothing,[nlab1;nlab2],lablist,a.name)
+      out = prdataset(X,nothing,[nlab1;nlab2],lablist,a.name)
    end
+   # The identifiers, if defined:
+   if (a.id!=nothing) && (b.id!=nothing)
+      id = [a.id; b.id]
+      setident!(out,id)
+      # should I warn when I'm losing the IDs?
+   end
+   return out
 end
+
+function setident!(a::prdataset,id=nothing)
+   # this version only supports one ID
+   N = size(a.data,1)
+   if (id==nothing)
+      id = collect(1:N)'
+   else
+      if length(id)!=N
+         error("Number of IDs does not match the number of objects in dataset.")
+      end
+   end
+   a.id = id
+end
+
 
 
 # some useful functions
