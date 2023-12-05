@@ -54,6 +54,16 @@ function Base.show(io::IO, ::MIME"text/plain", a::prdataset)
       print("]")
    end
 end
+"""
+Probably I want to protect .nlab so that I can store multiple labels in .nlab, but I want to allow the user to only see the current labels
+"""
+function Base.getproperty(a::prdataset, sym::Symbol)
+   if sym == :nlab
+      return getfield(a,:nlab)
+   else
+      return getfield(a,sym)
+   end
+end
 
 
 """ 
@@ -220,11 +230,6 @@ function genlab(n)
    return genlab(n,lablist)
 end
 
-function gendats(n=[50 50],d=1)
-   x1 = randn(n[1],2) 
-   x2 = randn(n[2],2) .+ [d 0]
-   return prdataset([x1;x2],genlab(n),"Simple dataset")
-end
 function scatterd(a::prdataset)
    C = length(a.lablist)
    leg = reshape(a.lablist,(1,C)) # scatter is very picky
@@ -233,6 +238,22 @@ function scatterd(a::prdataset)
    else
       scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
    end
+end
+
+"""
+    a = gendats(n=[50 50],d=1)
+Simple classification problem with 2 Gaussian classes, with distance `d`.
+"""
+function gendats(n=[50 50],d=1)
+   x1 = randn(n[1],2) 
+   x2 = randn(n[2],2) .+ [d 0]
+   return prdataset([x1;x2],genlab(n),"Simple dataset")
+end
+
+function gendatsin(n=40,s=0.1)
+   x = π * (2*rand(n,1) .- 1.0)
+   y = sin.(x) .+ s*randn(n,1)
+   return prdataset(x,y,"Sinusoidal dataset")
 end
 
 # some test cases:
