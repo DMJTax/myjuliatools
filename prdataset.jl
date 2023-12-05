@@ -1,16 +1,26 @@
+using Plots
+
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct prdataset
    data
    targets
    nlab
    lablist
+   name
+   id
+end
+function prdataset(data,targets,nlab,lablist,name)
+   return prdataset(data,targets,nlab,lablist,name,nothing)
+end
+function prdataset(data,targets,nlab,lablist)
+   return prdataset(data,targets,nlab,lablist,nothing)
 end
 
 """
    a = prdataset(X,y)
 Create a prdataset `a` from data matrix `X` and targets `y`. If `y` is categorical (i.e. a vector containing integers or strings) it becomes a classification dataset, otherwise a regression dataset.
 """
-function prdataset(X,y)
+function prdataset(X,y,name=nothing)
    N,dim = size(X)
    if (length(y)!=N)
       error("Number of labels/targets does not fit number of samples.")
@@ -19,13 +29,16 @@ function prdataset(X,y)
    if iscategorical(y)
       # classification dataset
       lab,lablist = renumlab(y)
-      return prdataset(X,nothing,lab,lablist)
+      return prdataset(X,nothing,lab,lablist,name)
    else
       # regression dataset
-      return prdataset(X,y,nothing,nothing)
+      return prdataset(X,y,nothing,nothing,name)
    end
 end
 function Base.show(io::IO, ::MIME"text/plain", a::prdataset)
+   if (a.name != nothing)
+      print(a.name,", ")
+   end
    N,dim = size(a.data)
    print("$N by $dim ")
    if (a.lablist == nothing)
@@ -198,11 +211,16 @@ function gendats(n=[50 50],d=1)
    x1 = randn(n[1],2) 
    x2 = randn(n[2],2) .+ [d 0]
    return prdataset([x1;x2],genlab(n))
+   #return prdataset([x1;x2],genlab(n),"Simple dataset")
 end
 function scatterd(a::prdataset)
    C = length(a.lablist)
    leg = reshape(a.lablist,(1,C)) # scatter is very picky
-   scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
+   if (a.name == nothing)
+      scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
+   else
+      scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
+   end
 end
 
 # some test cases:
