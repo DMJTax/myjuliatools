@@ -1,8 +1,8 @@
-module MyTools
+module myjuliatools
 
 include("prdataset.jl")
 include("datadescription.jl")
 include("crossvalidation.jl")
 include("mahaldist.jl")
 
-end
+end # end of module
