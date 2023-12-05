@@ -1,3 +1,20 @@
+"""
+Prdataset
+
+Implementation of the classical `prdataset` from Prtools in Matlab.
+The standard things are possible:
+
+```
+a = prdataset(randn(10,2), genlab([5 5]))
+b = a[3:7,:]
+c = [a;b]
+scatterd(c)
+```
+"""
+
+
+using Plots 
+
 export prdataset,renumlab,isvector,iscategorical,getlabels,classsizes,setident,genlab,scatterd,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
@@ -18,6 +35,7 @@ end
 
 """
    a = prdataset(X,y)
+
 Create a prdataset `a` from data matrix `X` and targets `y`. If `y` is categorical (i.e. a vector containing integers or strings) it becomes a classification dataset, otherwise a regression dataset.
 """
 function prdataset(X,y,name=nothing)
