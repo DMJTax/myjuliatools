@@ -124,6 +124,7 @@ Get the labels from prdataset `a`.
 function getlabels(a::prdataset)
    return a.lablist[a.nlab]
 end
+
 """
    n = classsizes(nlab,C) \\
    n = classsizes(nlab) \\
@@ -165,7 +166,11 @@ end
 # getindex and setindex!
 function Base.getindex(a::prdataset,I1,I2)
    # probably need to check if it is all proper?
-   return prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist)
+   if (a.nlab==nothing)
+      return prdataset(a.data[I1,I2],a.targets[I1,:], nothing, nothing, a.name)
+   else
+      return prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist,a.name)
+   end
 end
 function Base.vcat(a::prdataset, b::prdataset)
    if size(a,2) != size(b,2)
@@ -174,8 +179,8 @@ function Base.vcat(a::prdataset, b::prdataset)
    X = [a.data; b.data]
    if (a.nlab == nothing) # we have a regression dataset
       # concat the targets
-      newtarget = [a.targets; b.targets]
-      return prdataset(X,newtarget,nothing,nothing,a.name)
+      newtargets = [a.targets; b.targets]
+      return prdataset(X,newtargets,nothing,nothing,a.name)
    else 
       # make sure the lablist are consistent
       nlab1,nlab2,lablist = renumlab(a.lablist[a.nlab], b.lablist[b.nlab])
