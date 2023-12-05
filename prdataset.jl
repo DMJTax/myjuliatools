@@ -210,8 +210,7 @@ end
 function gendats(n=[50 50],d=1)
    x1 = randn(n[1],2) 
    x2 = randn(n[2],2) .+ [d 0]
-   return prdataset([x1;x2],genlab(n))
-   #return prdataset([x1;x2],genlab(n),"Simple dataset")
+   return prdataset([x1;x2],genlab(n),"Simple dataset")
 end
 function scatterd(a::prdataset)
    C = length(a.lablist)
