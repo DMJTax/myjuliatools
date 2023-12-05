@@ -172,10 +172,18 @@ function Base.vcat(a::prdataset, b::prdataset)
       error("Number of features of datasets do not match.")
    end
    X = [a.data; b.data]
-   # make sure the lablist are consistent
-   nlab1,nlab2,lablist = renumlab(a.lablist[a.nlab], b.lablist[b.nlab])
-   return prdataset(X,nothing,[nlab1;nlab2],lablist)
+   if (a.nlab == nothing) # we have a regression dataset
+      # concat the targets
+      newtarget = [a.targets; b.targets]
+      return prdataset(X,newtarget,nothing,nothing,a.name)
+   else 
+      # make sure the lablist are consistent
+      nlab1,nlab2,lablist = renumlab(a.lablist[a.nlab], b.lablist[b.nlab])
+      return prdataset(X,nothing,[nlab1;nlab2],lablist,a.name)
+   end
 end
+
+
 # some useful functions
 """
      lab = genlab(n,lablist) \\
@@ -244,7 +252,12 @@ a = prdataset(X,y)
 b = a[1:4,:]
 # concatenate
 c = [a;b]
+# The same for a regression problem
+d = prdataset(randn(5,3),randn(5,1));
+e = [d;d]
 
 # make and show
 a = gendats([20 10])
 scatterd(a)
+
+# 
