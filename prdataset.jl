@@ -281,13 +281,25 @@ function genlab(n)
    return genlab(n,lablist)
 end
 
+"""
+   scatterd(a)
+Scatter dataset `a`. If dataset `a` is a classification dataset, a 2D scatterplot is generated. If dataset `a` is a regression dataset, only a 1D plot can be made.
+"""
 function scatterd(a::prdataset)
-   C = length(a.lablist)
-   leg = reshape(a.lablist,(1,C)) # scatter is very picky
-   if (a.name == nothing)
-      scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
-   else
-      scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
+   if a.lablist==nothing # we have a regression problem
+      if (a.name==nothing)
+         scatter(a.data[:,1],a.targets)
+      else
+         scatter(a.data[:,1],a.targets,title=a.name)
+      end
+   else # we have a classification dataset
+      C = length(a.lablist)
+      leg = reshape(a.lablist,(1,C)) # scatter is very picky
+      if (a.name == nothing)
+         scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
+      else
+         scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
+      end
    end
 end
 
