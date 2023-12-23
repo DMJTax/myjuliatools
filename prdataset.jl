@@ -1,11 +1,11 @@
 """
 Prdataset
 
-Implementation of the classical `prdataset` from Prtools in Matlab.
+Implementation of the classical `Prdataset` from Prtools in Matlab.
 The standard things are possible:
 
 ```
-a = prdataset(randn(10,2), genlab([5 5]))
+a = Prdataset(randn(10,2), genlab([5 5]))
 b = a[3:7,:]
 c = [a;b]
 scatterd(c)
@@ -15,30 +15,37 @@ scatterd(c)
 
 using Plots 
 
-export prdataset,renumlab,isvector,iscategorical,getlabels,classsizes,setident,genlab,scatterd,gendats,gendatsin
+export Prdataset,renumlab,isvector,iscategorical,setdata!,getlabels,classsizes,setident,genlab,scatterd,mse,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
-mutable struct prdataset
+mutable struct Prdataset
    data
    targets
    nlab
    lablist
    name
    id
+   featlab
 end
-function prdataset(data,targets,nlab,lablist,name)
-   return prdataset(data,targets,nlab,lablist,name,nothing)
+function Prdataset(data,targets,nlab,lablist,name,id)
+   return Prdataset(data,targets,nlab,lablist,name,id,nothing)
 end
-function prdataset(data,targets,nlab,lablist)
-   return prdataset(data,targets,nlab,lablist,nothing)
+function Prdataset(data,targets,nlab,lablist,name)
+   return Prdataset(data,targets,nlab,lablist,name,nothing,nothing)
+end
+function Prdataset(data,targets,nlab,lablist)
+   return Prdataset(data,targets,nlab,lablist,nothing,nothing)
+end
+function Prdataset(data)
+   return Prdataset(data,nothing,nothing,nothing,nothing,nothing,nothing)
 end
 
 """
-   a = prdataset(X,y)
+   a = Prdataset(X,y)
 
-Create a prdataset `a` from data matrix `X` and targets `y`. If `y` is categorical (i.e. a vector containing integers or strings) it becomes a classification dataset, otherwise a regression dataset.
+Create a Prdataset `a` from data matrix `X` and targets `y`. If `y` is categorical (i.e. a vector containing integers or strings) it becomes a classification dataset, otherwise a regression dataset.
 """
-function prdataset(X,y,name=nothing)
+function Prdataset(X,y,name=nothing)
    N,dim = size(X)
    if (length(y)!=N)
       error("Number of labels/targets does not fit number of samples.")
@@ -47,20 +54,24 @@ function prdataset(X,y,name=nothing)
    if iscategorical(y)
       # classification dataset
       lab,lablist = renumlab(y)
-      return prdataset(X,nothing,lab,lablist,name)
+      return Prdataset(X,nothing,lab,lablist,name)
    else
       # regression dataset
-      return prdataset(X,y,nothing,nothing,name)
+      return Prdataset(X,y,nothing,nothing,name)
    end
 end
-function Base.show(io::IO, ::MIME"text/plain", a::prdataset)
+function Base.show(io::IO, ::MIME"text/plain", a::Prdataset)
    if (a.name != nothing)
       print(a.name,", ")
    end
    N,dim = size(a.data)
    print("$N by $dim ")
    if (a.lablist == nothing)
-      print("regression dataset")
+      if (a.targets == nothing)
+         print("unlabeled dataset")
+      else
+         print("regression dataset")
+      end
    else 
       C = length(a.lablist)
       print("dataset with $C classes: [")
@@ -75,11 +86,18 @@ end
 """
 Probably I want to protect .nlab so that I can store multiple labels in .nlab, but I want to allow the user to only see the current labels
 """
-function Base.getproperty(a::prdataset, sym::Symbol)
+function Base.getproperty(a::Prdataset, sym::Symbol)
    if sym == :nlab
       return getfield(a,:nlab)
    else
       return getfield(a,sym)
+   end
+end
+function Base.setproperty!(a::Prdataset, sym::Symbol, x)
+   if sym == :data
+      return setdata!(a,x)
+   else
+      return setfield!(a,sym,x)
    end
 end
 
@@ -145,11 +163,27 @@ function iscategorical(y)
    return (el isa Integer) || (el isa String)
 end
 
+function setdata!(a::Prdataset,data)
+   if (a.nlab == nothing)
+      if (a.targets != nothing)
+         if size(a.targets,1) != size(data,1)
+            error("New data size does not match number of targets.")
+         end
+      end
+   else
+      if length(a.nlab) != size(data,1)
+         error("New data size does not match number of labels.")
+      end
+   end
+   #a.data = data  # don't do this: causes recursion
+   setfield!(a,data,data)
+end
+
 """
    lab = getlabels(a)
-Get the labels from prdataset `a`.
+Get the labels from Prdataset `a`.
 """
-function getlabels(a::prdataset)
+function getlabels(a::Prdataset)
    return a.lablist[a.nlab]
 end
 
@@ -158,7 +192,7 @@ end
    n = classsizes(nlab) \\
    n = classsizes(a)
 
-Given a proper numerical label list `nlab`, or prdataset `a`, count the number of objects in each class. If the number of classes `C` is known, you can supply it. (NO checking of types etc is done!)
+Given a proper numerical label list `nlab`, or Prdataset `a`, count the number of objects in each class. If the number of classes `C` is known, you can supply it. (NO checking of types etc is done!)
 """
 function classsizes(nlab,C)
    n = zeros(Int,C)
@@ -171,37 +205,37 @@ function classsizes(nlab)
    C = maximum(nlab)
    return classsizes(nlab,C)
 end
-function classsizes(a::prdataset)
+function classsizes(a::Prdataset)
    return classsizes(a.nlab,length(a.lablist))
 end
 
 """
     dat = +a
-Get the data matrix from prdataset `a`.
+Get the data matrix from Prdataset `a`.
 """
-function Base.:+(a::prdataset)
+function Base.:+(a::Prdataset)
    return a.data
 end
-function ndims(a::prdataset)
+function ndims(a::Prdataset)
    return 2  # no mercy
 end
-function Base.size(a::prdataset,dim)
+function Base.size(a::Prdataset,dim)
    return size(a.data,dim)
 end
-function Base.size(a::prdataset)
+function Base.size(a::Prdataset)
    return size(a.data)
 end
 # Important definitions of selection of subdataset and dataset
 # concatenation
 #
 # getindex and setindex!
-function Base.getindex(a::prdataset,I1,I2)
+function Base.getindex(a::Prdataset,I1,I2)
    # probably need to check if I1,I2 are all proper?
    # classification or regression datasets?
    if (a.nlab==nothing)
-      out = prdataset(a.data[I1,I2],a.targets[I1,:], nothing, nothing, a.name)
+      out = Prdataset(a.data[I1,I2],a.targets[I1,:], nothing, nothing, a.name)
    else
-      out = prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist,a.name)
+      out = Prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist,a.name)
    end
    # The identifies, if defined:
    if (a.id==nothing)
@@ -212,7 +246,7 @@ function Base.getindex(a::prdataset,I1,I2)
    setident!(out,id)
    return out
 end
-function Base.vcat(a::prdataset, b::prdataset)
+function Base.vcat(a::Prdataset, b::Prdataset)
    if size(a,2) != size(b,2)
       error("Number of features of datasets do not match.")
    end
@@ -220,11 +254,11 @@ function Base.vcat(a::prdataset, b::prdataset)
    if (a.nlab == nothing) # we have a regression dataset
       # concat the targets
       newtargets = [a.targets; b.targets]
-      out = prdataset(X,newtargets,nothing,nothing,a.name)
+      out = Prdataset(X,newtargets,nothing,nothing,a.name)
    else 
       # make sure the lablist are consistent
       nlab1,nlab2,lablist = renumlab(a.lablist[a.nlab], b.lablist[b.nlab])
-      out = prdataset(X,nothing,[nlab1;nlab2],lablist,a.name)
+      out = Prdataset(X,nothing,[nlab1;nlab2],lablist,a.name)
    end
    # The identifiers, if defined:
    if (a.id!=nothing) && (b.id!=nothing)
@@ -235,7 +269,7 @@ function Base.vcat(a::prdataset, b::prdataset)
    return out
 end
 
-function setident!(a::prdataset,id=nothing)
+function setident!(a::Prdataset,id=nothing)
    # this version only supports one ID
    N = size(a.data,1)
    if (id==nothing)
@@ -285,23 +319,29 @@ end
    scatterd(a)
 Scatter dataset `a`. If dataset `a` is a classification dataset, a 2D scatterplot is generated. If dataset `a` is a regression dataset, only a 1D plot can be made.
 """
-function scatterd(a::prdataset)
+function scatterd(a::Prdataset)
    if a.lablist==nothing # we have a regression problem
       if (a.name==nothing)
-         scatter(a.data[:,1],a.targets)
+         h = scatter(a.data[:,1],a.targets)
       else
-         scatter(a.data[:,1],a.targets,title=a.name)
+         h = scatter(a.data[:,1],a.targets,title=a.name)
       end
    else # we have a classification dataset
       C = length(a.lablist)
       leg = reshape(a.lablist,(1,C)) # scatter is very picky
       if (a.name == nothing)
-         scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
+         h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
       else
-         scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
+         h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
       end
    end
+   return h
 end
+# Mean squared error
+function mse(a::Prdataset)
+   return mean((a.data .- a.targets).^2)
+end
+
 
 """
     a = gendats(n=[50 50],d=1)
@@ -310,12 +350,12 @@ Simple classification problem with 2 Gaussian classes, with distance `d`.
 function gendats(n=[50 50],d=1)
    x1 = randn(n[1],2) 
    x2 = randn(n[2],2) .+ [d 0]
-   return prdataset([x1;x2],genlab(n),"Simple dataset")
+   return Prdataset([x1;x2],genlab(n),"Simple dataset")
 end
 
 function gendatsin(n=40,s=0.1)
    x = π * (2*rand(n,1) .- 1.0)
    y = sin.(x) .+ s*randn(n,1)
-   return prdataset(x,y,"Sinusoidal dataset")
+   return Prdataset(x,y,"Sinusoidal dataset")
 end
 
