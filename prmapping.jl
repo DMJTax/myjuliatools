@@ -29,7 +29,7 @@ export Prmapping,prmapping,plotr!,linearr
 # regression or classification mappings?
 mutable struct Prmapping
    type          # type of mapping (untrained/trained)
-   fit           # fit function
+   fit!          # fit function
    predict       # predict function
    data          # parameters of the model
    labels        # feature labels of the output 
@@ -42,16 +42,26 @@ function prmapping(fit,predict)
 end
 # The training step
 function Base.:*(a::Prdataset,w::Prmapping)
-   if w.type=="untrained"
+   if w.type=="untrained"  # train an untrained mapping
       out = deepcopy(w)
-      w.fit(out.data, a) # DXD better?
+      w.fit!(out, a) # DXD better?
       out.type = "trained"
       return out
-   elseif w.type=="trained"
-      pred = w.predict(w.data,a)
+   elseif w.type=="trained" # apply a trained mapping to data
+      pred = w.predict(w,a)
+      if (pred isa Prdataset)
+         return pred
+      else
+         out = deepcopy(a)
+         setfield!(out,:data,pred)
+         return out
+      end
+   elseif w.type=="fixed"  # apply a fixed mapping to data
       out = deepcopy(a)
-      setfield!(out,:data,pred)
+      setfield!(out,:data,w.predict(w,a))
       return out
+   else
+      error("This type of mapping is not defined yet.")
    end
 end
 # Plot a regression function
@@ -66,15 +76,15 @@ end
 #
 # For each method we require a 'fit', a 'predict' function, and one call
 # for an untrained mapping
-function fitLS!(params, a)
-   degree = params["degree"] # ungainly storage
+function fitLS!(w, a)
+   degree = w.data["degree"] # ungainly storage
    X = a.data.^(collect(0:degree)')
-   params["weights"] = inv(X'*X)*X'*a.targets
-   return params
+   w.data["weights"] = inv(X'*X)*X'*a.targets
+   return w
 end
-function predictLS(params, a)
-   degree = params["degree"] # ungainly storage
-   w = params["weights"] # ungainly storage
+function predictLS(w, a)
+   degree = w.data["degree"] # ungainly storage
+   w = w.data["weights"] # ungainly storage
    X = a.data.^(collect(0:degree)')
    return X*w
 end
