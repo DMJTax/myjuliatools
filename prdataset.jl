@@ -15,7 +15,7 @@ scatterd(c)
 
 using Plots 
 
-export Prdataset,renumlab,isvector,iscategorical,setdata!,getlabels,classsizes,setident,genlab,scatterd,mse,gendats,gendatsin
+export Prdataset,renumlab,isvector,iscategorical,setdata!,getlabels,nrclasses,classsizes,setident,genlab,findclasses,classpriors,bayes,scatterd,mse,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
@@ -60,20 +60,20 @@ function Prdataset(X,y,name=nothing)
       return Prdataset(X,y,nothing,nothing,name)
    end
 end
+function isregression(a::Prdataset)
+   return (a.targets != nothing)
+end
+function isclassification(a::Prdataset)
+   return (a.nlab != nothing)
+end
 function Base.show(io::IO, ::MIME"text/plain", a::Prdataset)
    if (a.name != nothing)
       print(a.name,", ")
    end
    N,dim = size(a.data)
    print("$N by $dim ")
-   if (a.lablist == nothing)
-      if (a.targets == nothing)
-         print("unlabeled dataset")
-      else
-         print("regression dataset")
-      end
-   else 
-      C = length(a.lablist)
+   if isclassification(a)
+      C = nrclasses(a)
       print("dataset with $C classes: [")
       n = classsizes(a.nlab,C)
       print(n[1])
@@ -81,6 +81,12 @@ function Base.show(io::IO, ::MIME"text/plain", a::Prdataset)
          print(" ",n[i])
       end
       print("]")
+   elseif isregression(a)
+      print("regression dataset")
+   elseif (a.targets == nothing)
+      print("unlabeled dataset")
+   else
+      print("weird dataset (inconsistent)")
    end
 end
 """
@@ -164,7 +170,7 @@ function iscategorical(y)
 end
 
 function setdata!(a::Prdataset,data)
-   if (a.nlab == nothing)
+   if (a.nlab == nothing) # regression dataset
       if (a.targets != nothing)
          if size(a.targets,1) != size(data,1)
             error("New data size does not match number of targets.")
@@ -176,7 +182,7 @@ function setdata!(a::Prdataset,data)
       end
    end
    #a.data = data  # don't do this: causes recursion
-   setfield!(a,data,data)
+   setfield!(a,:data,data)
 end
 
 """
@@ -187,6 +193,17 @@ function getlabels(a::Prdataset)
    return a.lablist[a.nlab]
 end
 
+"""
+    C = nrclasses(a)
+Return the number of classes in a classification dataset. For a regression dataset this number is 0.
+"""
+function nrclasses(a::Prdataset)
+   if isclassification(a)
+      return length(a.lablist)
+   else
+      return 0
+   end
+end
 """
    n = classsizes(nlab,C) \\
    n = classsizes(nlab) \\
@@ -206,7 +223,7 @@ function classsizes(nlab)
    return classsizes(nlab,C)
 end
 function classsizes(a::Prdataset)
-   return classsizes(a.nlab,length(a.lablist))
+   return classsizes(a.nlab,nrclasses(a))
 end
 
 """
@@ -231,11 +248,19 @@ end
 # getindex and setindex!
 function Base.getindex(a::Prdataset,I1,I2)
    # probably need to check if I1,I2 are all proper?
+   if (I1 isa Int)
+      I1 = [I1]  #always keep the Matrix character of the prdataset
+   end
+   if (I2 isa Int)
+      I2 = [I2]  #always keep the Matrix character of the prdataset
+   end
    # classification or regression datasets?
-   if (a.nlab==nothing)
+   if isregression(a)
       out = Prdataset(a.data[I1,I2],a.targets[I1,:], nothing, nothing, a.name)
-   else
+   elseif isclassification(a)
       out = Prdataset(a.data[I1,I2],nothing,a.nlab[I1],a.lablist,a.name)
+   else
+      out = Prdataset(a.data[I1,I2],nothing,nothing,nothing,a.name)
    end
    # The identifies, if defined:
    if (a.id==nothing)
@@ -244,6 +269,10 @@ function Base.getindex(a::Prdataset,I1,I2)
       id = a.id[I1]
    end
    setident!(out,id)
+   # Feature labels, if defined:
+   if (a.featlab!=nothing)
+      out.featlab = a.featlab[I2]
+   end
    return out
 end
 function Base.vcat(a::Prdataset, b::Prdataset)
@@ -251,7 +280,7 @@ function Base.vcat(a::Prdataset, b::Prdataset)
       error("Number of features of datasets do not match.")
    end
    X = [a.data; b.data]
-   if (a.nlab == nothing) # we have a regression dataset
+   if isregression(a) # we have a regression dataset
       # concat the targets
       newtargets = [a.targets; b.targets]
       out = Prdataset(X,newtargets,nothing,nothing,a.name)
@@ -314,31 +343,62 @@ function genlab(n)
    lablist = map(string,collect(1:C))
    return genlab(n,lablist)
 end
+function findclasses(a::Prdataset)
+   c = nrclasses(a)
+   I = Vector{Vector{Int}}(undef,c)
+   for i=1:c
+      I[i] = findall(a.nlab .== i)
+   end
+   return I
+end
+function classpriors(a::Prdataset)
+   sz = classsizes(a)
+   return sz ./ sum(sz)
+end
+function bayes(Pcond,Pprior)
+   if (size(Pcond,2) != length(Pprior))
+      error("Number of priors does not correspond to the number of class.cond.P")
+   end
+   Pprior = reshape(Pprior,1,length(Pprior)) # make a row vector
+   Ppost = Pcond .* Pprior
+   return Ppost ./ sum(Ppost,dims=2)
+end
+
 
 """
    scatterd(a)
 Scatter dataset `a`. If dataset `a` is a classification dataset, a 2D scatterplot is generated. If dataset `a` is a regression dataset, only a 1D plot can be made.
 """
 function scatterd(a::Prdataset)
-   if a.lablist==nothing # we have a regression problem
+   xlabel=""; ylabel=""
+   if a.featlab!=nothing
+      xlabel=a.featlab[1]
+      if length(a.featlab)>1
+         ylabel=a.featlab[2]
+      end
+   end
+   if isregression(a) # we have a regression problem
       if (a.name==nothing)
-         h = scatter(a.data[:,1],a.targets)
+         h = scatter(a.data[:,1],a.targets,xlabel=xlabel)
       else
-         h = scatter(a.data[:,1],a.targets,title=a.name)
+         h = scatter(a.data[:,1],a.targets,title=a.name,xlabel=xlabel)
       end
    else # we have a classification dataset
-      C = length(a.lablist)
+      C = nrclasses(a)
       leg = reshape(a.lablist,(1,C)) # scatter is very picky
       if (a.name == nothing)
-         h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg)
+         h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,xlabel=xlabel,ylabel=ylabel)
       else
-         h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name)
+         h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name,xlabel=xlabel,ylabel=ylabel)
       end
    end
    return h
 end
 # Mean squared error
 function mse(a::Prdataset)
+   if !isregression(a)
+      error("MSE is defined for regression problems.")
+   end
    return mean((a.data .- a.targets).^2)
 end
 
@@ -350,7 +410,9 @@ Simple classification problem with 2 Gaussian classes, with distance `d`.
 function gendats(n=[50 50],d=1)
    x1 = randn(n[1],2) 
    x2 = randn(n[2],2) .+ [d 0]
-   return Prdataset([x1;x2],genlab(n),"Simple dataset")
+   out = Prdataset([x1;x2],genlab(n,["ω_1" "ω_2"]),"Simple dataset")
+   out.featlab = ["Feature 1", "Feature 2"]
+   return out
 end
 
 function gendatsin(n=40,s=0.1)
