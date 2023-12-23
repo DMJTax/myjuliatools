@@ -71,6 +71,48 @@ function plotr!(w::Prmapping)
    out = Prdataset(z[:,:])*w
    plot!(z,+out)
 end
+# Plot a classification function
+function plotm!(w::Prmapping, gridsize = 30)
+   # dummy input to get to the nr of outputs:
+   dummy = Prdataset([0.0 0.0])*w
+   C = size(dummy,2)
+   xl = xlims()
+   yl = ylims()
+   xrange = range(xl[1],xl[2],length=gridsize)
+   yrange = range(yl[1],yl[2],length=gridsize)
+   pred = zeros(gridsize,gridsize,C)
+   for i=1:gridsize
+      for j=1:gridsize
+         input = Prdataset([xrange[i] yrange[j]])
+         pred[i,j,:] = +(input*w)
+      end
+   end
+   for i=1:C
+      contour!(xrange,yrange,pred[:,:,i]')
+   end
+end
+function plotc!(w::Prmapping, gridsize = 30)
+   # dummy input to get to the nr of outputs:
+   dummy = Prdataset([0.0 0.0])*w
+   C = size(dummy,2)
+   if C!=2
+      error("Only two-class for now.")
+   end
+   xl = xlims()
+   yl = ylims()
+   xrange = range(xl[1],xl[2],length=gridsize)
+   yrange = range(yl[1],yl[2],length=gridsize)
+   pred = zeros(gridsize,gridsize,C)
+   for i=1:gridsize
+      for j=1:gridsize
+         input = Prdataset([xrange[i] yrange[j]])
+         pred[i,j,:] = +(input*w)
+      end
+   end
+   df = pred[:,:,1]-pred[:,:,2]
+   contour!(xrange,yrange,df[:,:,1]',levels=[0.0])
+end
+
 
 #  ------- Example of a linear regression   -----------
 #
