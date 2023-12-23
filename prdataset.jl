@@ -15,7 +15,7 @@ scatterd(c)
 
 using Plots 
 
-export Prdataset,renumlab,isvector,iscategorical,setdata!,getlabels,nrclasses,classsizes,setident,genlab,findclasses,classpriors,bayes,scatterd,mse,gendats,gendatsin
+export Prdataset,isregression,isclassification,renumlab,isvector,iscategorical,setdata!,getlabels,nrclasses,classsizes,setident,genlab,findclasses,classpriors,bayes,scatterd,mse,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
@@ -363,6 +363,31 @@ function bayes(Pcond,Pprior)
    Ppost = Pcond .* Pprior
    return Ppost ./ sum(Ppost,dims=2)
 end
+function normalise(w,a)
+   return a.data ./ sum(a.data,dims=2)
+end
+function classc()
+   return Prmapping("fixed",nothing,normalise,nothing,nothing)
+end
+function labeld(a::Prdataset)
+   if !isclassification(a)
+      error("labeld only defined for classification datasets.")
+   end
+   I = argmax.(eachrow(a.data))
+   if (a.featlab==nothing)
+      return I
+   else
+      return a.featlab[I]
+   end
+end
+function testc(a::Prdataset)
+   if !isclassification(a)
+      error("testc only defined for classification datasets.")
+   end
+   I1,I2,ll = renumlab(labeld(a),getlabels(a))
+   return mean(I1 .!= I2)
+end
+
 
 
 """
