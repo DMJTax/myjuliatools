@@ -1,27 +1,55 @@
-using LinearAlgebra
+using Statistics
 
-export fitLDA, predictLDA
-
-# Define the Linear Discriminant Analysis classifier
-mutable struct LDAc
-   mean
-   cov_inv
-   threshold
+# Fit the parameters of an LDA:
+# 0. (class priors?)
+# 1. the means
+# 2. the average covariance matrix
+function fitLDA!(w, a)
+   lambda = w.data["lambda"]
+   dim = size(a,2)
+   c = nrclasses(a)
+   I = findclasses(a)
+   X = +a
+   means = Matrix{AbstractFloat}(undef,c,dim)
+   covs = Array{AbstractFloat}(undef,dim,dim,c)
+   for i=1:c
+      means[i,:] = mean(X[I[i],:],dims=1)
+      covs[:,:,i] = cov(X[I[i],:],dims=1)
+   end
+   C = dropdims(mean(covs,dims=3), dims=3)
+   w.data["means"] = means
+   w.data["invcov"] = inv(C)
+   w.data["priors"] = classpriors(a)
+   w.labels = a.lablist
+   return w
+end
+function predictLDA(w, a)
+   # unpack
+   means = w.data["means"]
+   invC = w.data["invcov"]
+   priors = w.data["priors"]
+   # compute
+   c = size(means,1)
+   N = size(a,1)
+   pred = zeros(N,c)
+   for i=1:c
+      df = a.data .- means[[i],:]
+      dist = (df*invC) .* df 
+      pred[:,i] = exp.(- sum(dist,dims=2))
+   end
+   # store it:
+   out = deepcopy(a)
+   out.data = pred
+   out.featlab = w.labels # don't forget the corresponding class labels
+   return out
+end
+"""
+    w = ldc(a)
+Fit a Linear Discriminant Analysis classifier on dataset `a`.
+"""
+function ldc(lambda=0.0)
+   params = Dict{String,Any}("lambda"=>lambda)
+   return Prmapping("untrained",fitLDA!,predictLDA,params,nothing)
 end
 
-"""
-      fitLDA(x,λ=1e-6)
-
-"""
-function fitLDA(x,λ=1e-6)
-   dim = size(x,2)
-   reg = Diagonal(repeat([λ],dim))
-   mn = mean(x,dims=1)
-   cv = cov(x) .+ reg
-   icv = inv(cv)
-   dx = x.-mn
-   d = sum( (dx*icv).*dx, dims=2)
-   thr = dd_threshold(-d, fracrej)
-   return MahalDist(mn,icv,thr)
-end
 
