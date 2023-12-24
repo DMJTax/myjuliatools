@@ -12,10 +12,9 @@ scatterd(c)
 ```
 """
 
-
 using Plots 
 
-export Prdataset,isregression,isclassification,renumlab,isvector,iscategorical,setdata!,getlabels,nrclasses,classsizes,setident,genlab,findclasses,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotm!,plotc!,mse,gendats,gendatsin
+export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotm!,plotc!,mse,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
@@ -66,6 +65,9 @@ end
 function isclassification(a::Prdataset)
    return (a.nlab != nothing)
 end
+function isunlabeled(a::Prdataset)
+   return (a.targets==nothing) && (a.nlab == nothing)
+end
 function Base.show(io::IO, ::MIME"text/plain", a::Prdataset)
    if (a.name != nothing)
       print(a.name,", ")
@@ -102,6 +104,10 @@ end
 function Base.setproperty!(a::Prdataset, sym::Symbol, x)
    if sym == :data
       return setdata!(a,x)
+   elseif sym == :labels
+      return setlabels!(a,x)
+   elseif sym == :targets
+      return settargets!(a,x)
    else
       return setfield!(a,sym,x)
    end
@@ -190,8 +196,34 @@ end
 Get the labels from Prdataset `a`.
 """
 function getlabels(a::Prdataset)
+   if isregression(a)
+      error("No labels from a regression dataset.")
+   end
    return a.lablist[a.nlab]
 end
+function setlabels!(a::Prdataset,y)
+   if length(y) != size(a,1)
+      error("Number of labels does not match dataset size.")
+   end
+   if isregression(a)
+      error("Dataset is already a regression dataset.")
+   end
+   nlab,lablist = renumlab(y)
+   setfield!(a,:nlab,nlab) # avoid recursive call
+   setfield!(a,:lablist,lablist)
+   return a
+end 
+function settargets!(a::Prdataset,y)
+   if size(y,1) != size(a,1)
+      error("Number of targets does not match dataset size.")
+   end
+   if isclassification(a)
+      error("Dataset is already a classification dataset.")
+   end
+   setfield!(a,:targets,y)
+   return a
+end
+
 
 """
     C = nrclasses(a)
@@ -279,6 +311,9 @@ function Base.vcat(a::Prdataset, b::Prdataset)
    if size(a,2) != size(b,2)
       error("Number of features of datasets do not match.")
    end
+   if (isclassification(a)&&isregression(b)) || (isclassification(b)&&isregression(a))
+      error("Both datasets should be regression or classification.")
+   end
    X = [a.data; b.data]
    if isregression(a) # we have a regression dataset
       # concat the targets
@@ -320,13 +355,11 @@ end
 
 Generate labels `lab` as defined by `lablist`. For each entry `i` in the list `lablist`, `n[i]` labels are generated in `lab`. When no `lablist` is provided, the labels will be "1", "2", ...
 ```julia-repl
-lab = genlab([3 4])
-7-element Vector{String}:
+lab = genlab([3 2])
+5-element Vector{String}:
  "1"
  "1"
  "1"
- "2"
- "2"
  "2"
  "2"
 ```
@@ -351,6 +384,38 @@ function findclasses(a::Prdataset)
    end
    return I
 end
+"""
+    m = genclass(n,prior)
+Generates a class frequency distribution `m` of `n` (scalar) samples
+over a set of classes with prior probabilities given by the vector `prior`.
+The numbers of elements in `prior` determines the number of classes and
+thereby the number of elements in `m`. `prior` should be such that SUM(`prior`) = 1. 
+If `n` is a vector with length `c`, then `m`=`n` is returned. This transparent
+behavior is implemented to avoid tests in other routines.
+"""
+function genclass(n,prior=nothing)
+   if (prior==nothing)
+      return n
+   end
+   c = length(prior)
+   if length(n)==c
+      return n
+   elseif length(n)>1
+      error("Mismatch in number of classes.")
+   else
+      if abs(sum(prior)-1)>1e-9
+         error("Sum of class priors do not add up to 1.")
+      end
+      P = [0,cumsum(prior[:])...]
+      X = rand(n,1)
+      out = zeros(Int,1,c)
+      for i=1:c
+         out[i] = sum((X .> P[i]) .&& (X .<= P[i+1]));
+      end
+      return out
+   end
+end
+
 function classpriors(a::Prdataset)
    sz = classsizes(a)
    return sz ./ sum(sz)
@@ -436,6 +501,7 @@ end
 Simple classification problem with 2 Gaussian classes, with distance `d`.
 """
 function gendats(n=[50 50],d=1)
+   n = genclass(n, [0.5 0.5])
    x1 = randn(n[1],2) 
    x2 = randn(n[2],2) .+ [d 0]
    out = Prdataset([x1;x2],genlab(n,["ω_1" "ω_2"]),"Simple dataset")
