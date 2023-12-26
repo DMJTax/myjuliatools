@@ -453,8 +453,6 @@ function testc(a::Prdataset)
    return mean(I1 .!= I2)
 end
 
-
-
 """
    scatterd(a)
 Scatter dataset `a`. If dataset `a` is a classification dataset, a 2D scatterplot is generated. If dataset `a` is a regression dataset, only a 1D plot can be made.
@@ -485,8 +483,6 @@ function scatterd(a::Prdataset)
    return h
 end
 
-
-#
 # Mean squared error
 function mse(a::Prdataset)
    if !isregression(a)
