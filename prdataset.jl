@@ -492,22 +492,3 @@ function mse(a::Prdataset)
 end
 
 
-"""
-    a = gendats(n=[50 50],d=1)
-Simple classification problem with 2 Gaussian classes, with distance `d`.
-"""
-function gendats(n=[50 50],d=1)
-   n = genclass(n, [0.5 0.5])
-   x1 = randn(n[1],2) 
-   x2 = randn(n[2],2) .+ [d 0]
-   out = Prdataset([x1;x2],genlab(n,["ω_1" "ω_2"]),"Simple dataset")
-   out.featlab = ["Feature 1", "Feature 2"]
-   return out
-end
-
-function gendatsin(n=40,s=0.1)
-   x = π * (2*rand(n,1) .- 1.0)
-   y = sin.(x) .+ s*randn(n,1)
-   return Prdataset(x,y,"Sinusoidal dataset")
-end
-
