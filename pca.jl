@@ -11,7 +11,10 @@ Fit a PCA on dataset `a`, retain `n` dimensions. If `frac` (between 0 and 1) is 
 """
 function pca(n=2)
    params = Dict{String,Any}("n"=>n)
-   return Prmapping("untrained",fitPCA!,predictPCA,params,nothing)
+   return Prmapping("Principal Component Analysis","untrained",fitPCA!,predictPCA,params,nothing)
+end
+function pca(a::Prdataset,n)
+   return a*pca(n)
 end
 # Fit the parameters of an PCA:
 # 1. the mean
