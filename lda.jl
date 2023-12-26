@@ -1,5 +1,7 @@
 using Statistics
 
+export ldc
+
 # Fit the parameters of an LDA:
 # 0. (class priors?)
 # 1. the means
@@ -21,6 +23,8 @@ function fitLDA!(w, a)
    w.data["invcov"] = inv(C)
    w.data["priors"] = classpriors(a)
    w.labels = a.lablist
+   w.nrin = dim
+   w.nrout = c
    return w
 end
 function predictLDA(w, a)
@@ -49,7 +53,9 @@ Fit a Linear Discriminant Analysis classifier on dataset `a`.
 """
 function ldc(lambda=0.0)
    params = Dict{String,Any}("lambda"=>lambda)
-   return Prmapping("untrained",fitLDA!,predictLDA,params,nothing)
+   return Prmapping("Linear Discriminant Classifier","untrained",fitLDA!,predictLDA,params,nothing)
 end
-
+function ldc(a::Prdataset,lambda)
+   return a*ldc(lambda)
+end
 
