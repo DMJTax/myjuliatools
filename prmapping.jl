@@ -28,18 +28,48 @@ export Prmapping,prmapping,plotr!,linearr
 # # DXD: should I make explicit somewhere if we're dealing with
 # regression or classification mappings?
 mutable struct Prmapping
+   name          # name of the mapping
    type          # type of mapping (untrained/trained)
    fit!          # fit function
    predict       # predict function
    data          # parameters of the model
    labels        # feature labels of the output 
+   nrin          # nr input features
+   nrout         # nr of outputs
 end
 # Next we define an untrained mapping:
 # (How should we store the parameters of the function: leave it to the
 # user?)
-function prmapping(fit,predict)
-   return Prmapping("untrained",fit,predict,nothing,nothing)
+function prmapping(fit::Function,predict::Function,data)
+   return Prmapping(nothing,"untrained",fit,predict,data,nothing)
 end
+function prmapping(fit::Function,predict::Function)
+   return Prmapping(nothing,"untrained",fit,predict,nothing,nothing)
+end
+function Prmapping(name::String,type::String,fit::Function,predict::Function,data,labels)
+   return Prmapping(name,type,fit,predict,data,labels,0,0)
+end
+function Prmapping(name::String,type::String,fit::Function,predict::Function,data)
+   return Prmapping(name,type,fit,predict,data,nothing,0,0)
+end
+# Show
+function Base.show(io::IO, ::MIME"text/plain", w::Prmapping)
+   if (w.name != nothing)
+      print(w.name,", ")
+   end
+   if (w.nrin>0)
+      print(w.nrin," to ",w.nrout," ")
+   end
+   print(w.type," mapping (")
+   if (w.fit! !==nothing)
+      print("fit: ",String(Symbol(w.fit!)),", ")
+   end
+   if (w.predict !==nothing)
+      print("predict: ",String(Symbol(w.predict)))
+   end
+   print(")")
+end
+
 # The training step
 function Base.:*(a::Prdataset,w::Prmapping)
    if w.type=="untrained"  # train an untrained mapping
@@ -122,6 +152,8 @@ function fitLS!(w, a)
    degree = w.data["degree"] # ungainly storage
    X = a.data.^(collect(0:degree)')
    w.data["weights"] = inv(X'*X)*X'*a.targets
+   w.nrin = size(a,2)
+   w.nrout = size(a.targets,2)
    return w
 end
 function predictLS(w, a)
@@ -130,15 +162,15 @@ function predictLS(w, a)
    X = a.data.^(collect(0:degree)')
    return X*w
 end
-function linearr(degree=1)
-   params = Dict{String,Any}("degree"=>degree)
-   return Prmapping("untrained",fitLS!,predictLS,params,nothing)
-end
 """
     w = linearr(a, degree=1)
 
 Fit a linear least square regression on dataset `a`. If requested, with `degree` higher order terms of the data features can also be used.
 """
+function linearr(degree=1)
+   params = Dict{String,Any}("degree"=>degree)
+   return Prmapping("Linear Regression","untrained",fitLS!,predictLS,params,nothing)
+end
 function linearr(a::Prdataset,degree=1)
    return a*linearr(degree)
 end
