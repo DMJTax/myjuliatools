@@ -94,6 +94,8 @@ function Base.:*(a::Prdataset,w::Prmapping)
       error("This type of mapping is not defined yet.")
    end
 end
+
+
 # Plot a regression function
 function plotr!(w::Prmapping)
    xl = xlims()
@@ -144,34 +146,4 @@ function plotc!(w::Prmapping, gridsize = 30)
 end
 
 
-#  ------- Example of a linear regression   -----------
-#
-# For each method we require a 'fit', a 'predict' function, and one call
-# for an untrained mapping
-function fitLS!(w, a)
-   degree = w.data["degree"] # ungainly storage
-   X = a.data.^(collect(0:degree)')
-   w.data["weights"] = inv(X'*X)*X'*a.targets
-   w.nrin = size(a,2)
-   w.nrout = size(a.targets,2)
-   return w
-end
-function predictLS(w, a)
-   degree = w.data["degree"] # ungainly storage
-   w = w.data["weights"] # ungainly storage
-   X = a.data.^(collect(0:degree)')
-   return X*w
-end
-"""
-    w = linearr(a, degree=1)
-
-Fit a linear least square regression on dataset `a`. If requested, with `degree` higher order terms of the data features can also be used.
-"""
-function linearr(degree=1)
-   params = Dict{String,Any}("degree"=>degree)
-   return Prmapping("Linear Regression","untrained",fitLS!,predictLS,params,nothing)
-end
-function linearr(a::Prdataset,degree=1)
-   return a*linearr(degree)
-end
 
