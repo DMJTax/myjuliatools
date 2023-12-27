@@ -217,10 +217,12 @@ end
 Fit a Parzen classifier, with width parameter `h`, on dataset `a`.
 """
 function parzenc(h=1.0)
-    return generativec(parzenm(h))
+    u = generativec(parzenm(h))
+    u.name = "Parzen classifier"
+    return u
 end
 function parzenc(a::Prdataset,h=1.0)
-    return a*generativec(parzenm(h))
+    return a*parzenc(h)
 end
 
 
