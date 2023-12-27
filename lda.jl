@@ -2,6 +2,18 @@ using Statistics
 
 export ldc
 
+"""
+    w = ldc(a)
+
+Fit a Linear Discriminant Analysis classifier on dataset `a`.
+"""
+function ldc(lambda=0.0)
+   params = Dict{String,Any}("lambda"=>lambda)
+   return Prmapping("Linear Discriminant Classifier","untrained",fitLDA!,predictLDA,params,nothing)
+end
+function ldc(a::Prdataset,lambda)
+   return a*ldc(lambda)
+end
 # Fit the parameters of an LDA:
 # 0. (class priors?)
 # 1. the means
@@ -46,16 +58,5 @@ function predictLDA(w, a)
    out.data = pred
    out.featlab = w.labels # don't forget the corresponding class labels
    return out
-end
-"""
-    w = ldc(a)
-Fit a Linear Discriminant Analysis classifier on dataset `a`.
-"""
-function ldc(lambda=0.0)
-   params = Dict{String,Any}("lambda"=>lambda)
-   return Prmapping("Linear Discriminant Classifier","untrained",fitLDA!,predictLDA,params,nothing)
-end
-function ldc(a::Prdataset,lambda)
-   return a*ldc(lambda)
 end
 
