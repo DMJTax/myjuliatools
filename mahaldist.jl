@@ -5,9 +5,9 @@ export MahalDist, fitMahal, predictMahalDist, predictMahal
 # Define the most simple outlier detector: the Mahalanobis distance to
 # the mean of the data.
 mutable struct MahalDist
-   mean
-   cov_inv
-   threshold
+    mean
+    cov_inv
+    threshold
 end
 
 """
@@ -20,15 +20,15 @@ To avoid invertible covariance matrices, a small value λ is added to
 the diagonal.
 """
 function fitMahal(x,fracrej=0.05,λ=1e-6)
-   dim = size(x,2)
-   reg = Diagonal(repeat([λ],dim))
-   mn = mean(x,dims=1)
-   cv = cov(x) .+ reg
-   icv = inv(cv)
-   dx = x.-mn
-   d = sum( (dx*icv).*dx, dims=2)
-   thr = dd_threshold(-d, fracrej)
-   return MahalDist(mn,icv,thr)
+    dim = size(x,2)
+    reg = Diagonal(repeat([λ],dim))
+    mn = mean(x,dims=1)
+    cv = cov(x) .+ reg
+    icv = inv(cv)
+    dx = x.-mn
+    d = sum( (dx*icv).*dx, dims=2)
+    thr = dd_threshold(-d, fracrej)
+    return MahalDist(mn,icv,thr)
 end
 
 """
@@ -37,9 +37,9 @@ end
 Compute the Mahalanobis distance on dataset `x`. The `model` is obtained from function `fitMahal`.
 """
 function predictMahalDist(model,x)
-   dx = x.-model.mean
-   d = sum( (dx*model.cov_inv) .* dx, dims=2 )
-   return d
+    dx = x.-model.mean
+    d = sum( (dx*model.cov_inv) .* dx, dims=2 )
+    return d
 end
 """
       predictMahal(model,x)
@@ -48,8 +48,8 @@ Predict if an object in dataset `x` is normal or outlier, according to the Mahal
 The output is 1 for target, and  -1 for outlier. 
 """
 function predictMahal(model,x)
-   d = -predictMahalDist(model,x)
-   return 2.0 .*(d.>model.threshold) .- 1.0
+    d = -predictMahalDist(model,x)
+    return 2.0 .*(d.>model.threshold) .- 1.0
 end
 
 
