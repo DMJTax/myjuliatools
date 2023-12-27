@@ -1,5 +1,6 @@
 # Define some useful datasets, for regression and classification
 #
+export gendats,gendatb,gendatsin
 
 """
     a = gendats(n=[50 50],d=1)
