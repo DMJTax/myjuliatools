@@ -30,13 +30,15 @@ function fitPCA!(w, a)
    v = eigvecs(datacov)
    J = sortperm(lambda,rev=true)
    if (n<1.0) # we defined a fraction of variance explained
-      f = cumsum(l[J])./sum(l)
+      f = cumsum(lambda[J])./sum(lambda)
       n = sum(f.<=n)
    end
    V = v[:,J[1:n]]
    # store the results
    w.data["mean"] = datamean
    w.data["pcs"] = V
+   w.nrin = dim
+   w.nrout = n
    return w
 end
 function predictPCA(w, a)
