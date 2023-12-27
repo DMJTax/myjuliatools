@@ -443,6 +443,12 @@ function classpriors(a::Prdataset)
    sz = classsizes(a)
    return sz ./ sum(sz)
 end
+"""
+         P = bayes(classP, prior)
+Apply Bayes' rule to compute the posterior probabilities `P` from the
+class conditional probabilities `classP` and the class priors `prior`.
+
+"""
 function bayes(Pcond,Pprior)
    if (size(Pcond,2) != length(Pprior))
       error("Number of priors does not correspond to the number of class.cond.P")
