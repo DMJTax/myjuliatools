@@ -19,10 +19,13 @@
 #     pred = predictf(param, dataset)
 #
 # An example is given by the linear regression `linearr`
+#
+# Next, mapping can be combined, for instance insequence:
+# u = [pca() ldc()]
 using Statistics
 using Plots
 
-export Prmapping,prmapping,plotr!,linearr
+export Prmapping,prmapping,plotr!,plotm!,plotc!,sequential
 
 # Define a basic prmapping
 # # DXD: should I make explicit somewhere if we're dealing with
@@ -144,6 +147,70 @@ function plotc!(w::Prmapping, gridsize = 30)
    df = pred[:,:,1]-pred[:,:,2]
    contour!(xrange,yrange,df[:,:,1]',levels=[0.0])
 end
+
+# Sequential mapping
+function fitSeq!(w,a)
+   u = w.data["mappings"]
+   dim = size(a,2)
+   K = length(u)
+   trained = Vector{Prmapping}(undef,K)
+   # train first mapping:
+   if (u[1].type=="untrained")
+      trained[1] = a*u[1]
+   else
+      trained[1] = deepcopy(u[1])
+   end
+   # map the data
+   out = a*trained[1]
+   # the rest
+   for i=2:length(u)
+      if (u[i].type=="untrained")
+         trained[i] = a*u[i]
+      else
+         trained[i] = deepcopy(u[i])
+      end
+      out = out*trained[i]
+   end
+   c = size(out,2)
+   w.data["mappings"] = trained
+   w.labels = out.lablist
+   w.nrin = dim
+   w.nrout = c
+   return w
+end
+function predictSeq(w,a)
+   v = w.data["mappings"]
+   # first mapping:
+   out = a*v[1]
+   for i=2:length(v)
+      out = out*v[i]
+   end
+   return out
+end
+function sequential(u::Prmapping,u2...)
+   K = length(u2)+1
+   if K==1
+      return u
+   end
+   mappings = Vector{Prmapping}(undef,K)
+   mappings[1] = deepcopy(u)
+   for i=2:K
+      if !(u2[i-1] isa Prmapping)
+         error("Only prmappings can be concatenated.")
+      end
+      mappings[i] = deepcopy(u2[i-1])
+   end
+   params = Dict{String,Any}("mappings"=>mappings)
+   return Prmapping("Sequential map","untrained",fitSeq!,predictSeq,params,nothing)
+end
+
+# Horizontally concatenate two prmappings, which is actually giving a
+# sequential mapping:
+function Base.hcat(u::Prmapping, u2...)
+   return sequential(u,u2...)
+end
+
+
 
 
 
