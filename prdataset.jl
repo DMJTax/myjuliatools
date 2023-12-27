@@ -332,6 +332,29 @@ function Base.vcat(a::Prdataset, b::Prdataset)
    end
    return out
 end
+# Horizontally concatenate two prdatasets
+function Base.hcat(a::Prdataset, b::Prdataset)
+   if size(a,1) != size(b,1)
+      error("Datasets do not have equal number of objects.")
+   end
+   if (a.featlab==nothing)
+      if (b.featlab==nothing)
+         newfeatlab = nothing
+      else
+         error("Dataset B has feature labels, but A has not.")
+      end
+   else
+      if (b.featlab==nothing)
+         error("Dataset A has feature labels, but B has not.")
+      else
+         newfeatlab = [a.featlab; b.featlab]
+      end
+   end
+   out = deepcopy(a)
+   out.data = [a.data b.data]
+   out.featlab = newfeatlab
+   return out
+end
 
 function setident!(a::Prdataset,id=nothing)
    # this version only supports one ID
