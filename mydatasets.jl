@@ -3,15 +3,18 @@
 export gendats,gendatb,gendatsin
 
 """
-    a = gendats(n=[50 50],d=1)
+    a = gendats(n=[50 50],d=1,dim=2)
 Simple classification problem with 2 Gaussian classes, with distance `d`.
 """
-function gendats(n=[50 50],d=1)
+function gendats(n=[50 50],d=1,dim=2)
    n = genclass(n, [0.5 0.5])
    x1 = randn(n[1],2) 
    x2 = randn(n[2],2) .+ [d 0]
    out = Prdataset([x1;x2],genlab(n,["ω_1" "ω_2"]),"Simple dataset")
    out.featlab = ["Feature 1", "Feature 2"]
+   if (dim>2)
+      out.data = [out.data randn(sum(n),dim-2)]
+   end
    return out
 end
 
