@@ -151,9 +151,6 @@ function generativec(dens=gaussm)
     u.name = "Generative cl."
     return u
 end
-function generativem(a::Prdataset, dens)
-    return a*generativec(dens)
-end
 function fitGenerative!(w::Prmapping, a::Prdataset)
     dens = w.data["dens"]
     c = nrclasses(a)
