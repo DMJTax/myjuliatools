@@ -204,10 +204,9 @@ function sequential(u::Prmapping,u2...)
     return Prmapping("Sequential map","untrained",fitSeq!,predictSeq,params,nothing)
 end
 
-# Horizontally concatenate two prmappings, which is actually giving a
 # sequential mapping:
-function Base.hcat(u::Prmapping, u2...)
-    return sequential(u,u2...)
+function Base.:*(u1::Prmapping,u2::Prmapping)
+    return sequential(u1,u2)
 end
 
 

@@ -16,7 +16,9 @@ This can be done in Julia like:
 > lab = labeld(pred)  # show the predicted labels
 > testc(pred)         # and the error
 ```
+
 """
+
 using LinearAlgebra
 using Statistics
 
@@ -166,7 +168,7 @@ function generativec(dens=gaussm)
     params = Dict{String,Any}("dens"=>dens)
     u1 = Prmapping("Generative cl.","untrained",fitGenerative!,predictGenerative,params,nothing)
     u2 = bayesc()
-    u = [u1 u2]
+    u = u1*u2
     u.name = "Generative cl."
     return u
 end
@@ -240,23 +242,4 @@ end
 function parzenc(a::Prdataset,h=1.0)
     return a*parzenc(h)
 end
-
-
-a = gendatb()
-u = gaussm(0)
-w = a*u
-b = a*w
-#scatterd(a)
-#plotm!(w)
-
-u = bayesc()
-w = a*u
-
-#u = generativem(gaussm())
-#u = generativec(gaussm())
-#u = generativec(parzenm(2.5))
-u = qdc()
-w = a*u
-b = a*w
-
 
