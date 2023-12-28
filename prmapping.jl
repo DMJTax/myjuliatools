@@ -165,7 +165,7 @@ function fitSeq!(w,a)
     # the rest
     for i=2:length(u)
         if (u[i].type=="untrained")
-            trained[i] = a*u[i]
+            trained[i] = out*u[i]
         else
             trained[i] = deepcopy(u[i])
         end
@@ -182,6 +182,7 @@ function predictSeq(w,a)
     v = w.data["mappings"]
     # first mapping:
     out = a*v[1]
+    # now the rest:
     for i=2:length(v)
         out = out*v[i]
     end
