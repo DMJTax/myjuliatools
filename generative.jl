@@ -1,3 +1,22 @@
+"""
+   Generative classifiers
+
+The classical way of defining classifiers:
+1. estimate the probability density of each of the classes
+2. estimate the class prior probabilities
+3. use Bayes' rule to obtain the class posterior probabilities
+
+This can be done in Julia like:
+```
+> a = gendatb()       # get data
+  # estimate a gaussian for the first class, a Parzen for the second:
+> u = generativec([gaussm() parzenm()])
+> w = a*u             # train the classifier
+> pred = a*w          # get the predictions
+> lab = labeld(pred)  # show the predicted labels
+> testc(pred)         # and the error
+```
+"""
 using LinearAlgebra
 using Statistics
 
