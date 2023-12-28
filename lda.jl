@@ -11,7 +11,7 @@ function ldc(lambda=0.0)
     params = Dict{String,Any}("lambda"=>lambda)
     return Prmapping("Linear Discriminant Classifier","untrained",fitLDA!,predictLDA,params,nothing)
 end
-function ldc(a::Prdataset,lambda)
+function ldc(a::Prdataset,lambda=0.0)
     return a*ldc(lambda)
 end
 # Fit the parameters of an LDA:
