@@ -14,7 +14,7 @@ scatterd(c)
 
 using Plots 
 
-export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotm!,plotc!,mse,gendats,gendatsin
+export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotm!,plotc!,mse,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
@@ -399,6 +399,10 @@ function genlab(n)
     lablist = map(string,collect(1:C))
     return genlab(n,lablist)
 end
+"""
+        I = findclasses(a)
+Return a vector of vectors, each `I[j]` containing the indices of objects of class `j`.
+"""
 function findclasses(a::Prdataset)
     c = nrclasses(a)
     I = Vector{Vector{Int}}(undef,c)
@@ -406,6 +410,14 @@ function findclasses(a::Prdataset)
         I[i] = findall(a.nlab .== i)
     end
     return I
+end
+"""
+    b = seldat(a,classnr)
+Select objects from class `classnr` out of dataset `a`.
+"""
+function seldat(a::Prdataset,nr=1)
+    I = findclasses(a)
+    return a[I[nr],:]
 end
 """
     m = genclass(n,prior)
