@@ -6,8 +6,8 @@ function scalem(stype="unitvar",smallval=1e-9)
     params = Dict{String,Any}("stype"=>stype,"eps"=>smallval)
     return Prmapping("Scale map","untrained",fitScalem!,predictScalem,params,nothing)
 end
-function scalem(a::Prdataset, stype="unitvar")
-    return a*scalem(stype)
+function scalem(a::Prdataset, stype="unitvar",smallval=1e-9)
+    return a*scalem(stype,smallval)
 end
 function fitScalem!(w,a)
     # unpack

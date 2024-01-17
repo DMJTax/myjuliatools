@@ -63,14 +63,16 @@ function Base.show(io::IO, ::MIME"text/plain", w::Prmapping)
     if (w.nrin>0)
         print(w.nrin," to ",w.nrout," ")
     end
-    print(w.type," mapping (")
-    if (w.fit! !==nothing)
-        print("fit: ",String(Symbol(w.fit!)),", ")
-    end
-    if (w.predict !==nothing)
-        print("predict: ",String(Symbol(w.predict)))
-    end
-    print(")")
+    print(w.type," mapping")
+    #print(" (")
+    # DXD: Is this info really useful? (Takes a lot of space) 
+    #if (w.fit! !==nothing)
+    #    print("fit: ",String(Symbol(w.fit!)),", ")
+    #end
+    #if (w.predict !==nothing)
+    #    print("predict: ",String(Symbol(w.predict)))
+    #end
+    #print(")")
 end
 
 # The training step
@@ -87,6 +89,7 @@ function Base.:*(a::Prdataset,w::Prmapping)
         else
             out = deepcopy(a)
             setfield!(out,:data,pred)
+            setfield!(out,:featlab,w.labels)
             return out
         end
     elseif w.type=="fixed"  # apply a fixed mapping to data
@@ -106,7 +109,7 @@ function plotr!(w::Prmapping)
     out = Prdataset(z[:,:])*w
     plot!(z,+out)
 end
-# Plot a classification function
+# Plot the output of a mapping
 function plotm!(w::Prmapping, gridsize = 30)
     # dummy input to get to the nr of outputs:
     dummy = Prdataset([0.0 0.0])*w
@@ -126,6 +129,7 @@ function plotm!(w::Prmapping, gridsize = 30)
         contour!(xrange,yrange,pred[:,:,i]')
     end
 end
+# Plot a classification function
 function plotc!(w::Prmapping, gridsize = 30)
     # dummy input to get to the nr of outputs:
     dummy = Prdataset([0.0 0.0])*w
@@ -145,7 +149,8 @@ function plotc!(w::Prmapping, gridsize = 30)
         end
     end
     df = pred[:,:,1]-pred[:,:,2]
-    contour!(xrange,yrange,df[:,:,1]',levels=[0.0])
+    h = contour!(xrange,yrange,df[:,:,1]',levels=[0.0])
+    return h
 end
 
 # Sequential mapping
@@ -165,7 +170,7 @@ function fitSeq!(w,a)
     # the rest
     for i=2:length(u)
         if (u[i].type=="untrained")
-            trained[i] = a*u[i]
+            trained[i] = out*u[i]
         else
             trained[i] = deepcopy(u[i])
         end
@@ -182,6 +187,7 @@ function predictSeq(w,a)
     v = w.data["mappings"]
     # first mapping:
     out = a*v[1]
+    # now the rest:
     for i=2:length(v)
         out = out*v[i]
     end
@@ -194,17 +200,19 @@ function sequential(u::Prmapping,u2...)
     end
     mappings = Vector{Prmapping}(undef,K)
     mappings[1] = deepcopy(u)
+    newname = mappings[1].name
     for i=2:K
         if !(u2[i-1] isa Prmapping)
             error("Only prmappings can be concatenated.")
         end
         mappings[i] = deepcopy(u2[i-1])
+        newname *= ("+"*mappings[i].name)
     end
     params = Dict{String,Any}("mappings"=>mappings)
-    return Prmapping("Sequential map","untrained",fitSeq!,predictSeq,params,nothing)
+    return Prmapping(newname,"untrained",fitSeq!,predictSeq,params,nothing)
+    #return Prmapping("Sequential map","untrained",fitSeq!,predictSeq,params,nothing)
 end
-
-# sequential mapping:
+# use the '*' as shortcut for a sequential mapping:
 function Base.:*(u1::Prmapping,u2::Prmapping)
     return sequential(u1,u2)
 end
