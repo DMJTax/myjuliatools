@@ -89,6 +89,7 @@ function Base.:*(a::Prdataset,w::Prmapping)
         else
             out = deepcopy(a)
             setfield!(out,:data,pred)
+            setfield!(out,:featlab,w.labels)
             return out
         end
     elseif w.type=="fixed"  # apply a fixed mapping to data
