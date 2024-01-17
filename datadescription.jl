@@ -1,6 +1,6 @@
 using Distributions
 
-export RandUniformSphere, dd_threshold, dd_auc
+export RandUniformSphere, dd_threshold, dd_auc, gendatoc, target_class
 
 """
         RandUniformSphere(N,D)
@@ -68,4 +68,61 @@ function dd_auc(phat,y)
 
     return meany'*dx
 end
+
+"""
+    a = gendatoc(x_t,x_o)
+    a = gendatoc(x_t)
+    a = gendatoc(nothing,x_o)
+
+Generate a one-class dataset from data matrix `x_t` (for the target
+class) and matrix `x_o` for the outlier class. You can leave out one of
+the matrices.
+"""
+function gendatoc(x_t,x_o=nothing)
+    if (x_t==nothing)
+        if (x_o==nothing)
+            error("I need at least a target or an outlier class defined.")
+        end
+        n_o,d_o = size(x_o)
+        out = Prdataset(x_o, genlab(n_o,["outlier"]))
+    else
+        n_t,d_t = size(x_t)
+        if (x_o==nothing)
+            out = Prdataset(x_t, genlab(n_t,["target"]))
+        else
+            n_o,d_o = size(x_o)
+            if (d_t!=d_o)
+                error("Dimensionalities do not match.")
+            end
+            out = Prdataset([x_t;x_o], genlab([n_t,n_o],["target";"outlier"]))
+        end
+    end
+    return out
+end
+
+"""
+
+   a = target_class(x,lab)
+
+Extract the class `lab` from dataset `x` and make it the target class.
+Default `lab="target"`.
+"""
+function target_class(x::Prdataset,lab="target")
+    if isa(lab,String)
+        nr = findfirst(x.lablist .== lab)
+    elseif isinteger(lab)
+        nr = lab
+    else
+        error("Type of label is not suitable.")
+    end
+    J = findall(x.nlab .== nr)
+    if length(J)==0
+        error("Target class not found.")
+    end
+    out = x[J,:]
+    out.lablist = ["target"]
+    return out
+end
+
+
 
