@@ -373,7 +373,7 @@ end
 
 # some useful functions
 """
-     lab = genlab(n,lablist) \\
+     lab = genlab(n,lablist) 
      lab = genlab(n)
 
 Generate labels `lab` as defined by `lablist`. For each entry `i` in the list `lablist`, `n[i]` labels are generated in `lab`. When no `lablist` is provided, the labels will be "1", "2", ...
