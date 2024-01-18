@@ -36,7 +36,7 @@ function fitMOG!(w,a)
     mog["means"], mog["invcovs"], mog["priors"] = mog_init(+a,k,ctype)
     w.data = mog_update!(mog,+a,nriters,reg)
     w.nrin = size(a,2)
-    w.nrout = k
+    w.nrout = 1
     return w
 end
 function predictMOG(w,a)
@@ -169,7 +169,9 @@ Finally, the EM algorithm is run for *at max* `nriters` iterations.
 
 """
 function mogc(k=3,ctype="full",reg=0.0001,nriters=100)
-    return generativec(mogm(k,ctype,reg,nriters))
+    out = generativec(mogm(k,ctype,reg,nriters))
+    out.name = "MoG classifier"
+    return out
 end
 function mogc(a::Prdataset,k=3,ctype="full",reg=0.0001,nriters=100)
     return a*mogc(k,ctype,reg,nriters)
