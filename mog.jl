@@ -153,12 +153,21 @@ function mog_update!(mog,x,nriters=100,reg=0.0001)
 end
 """
      w = mogc(a,k)
+     w = mogc(a,k,ctype="full",reg=0.0001,nriters=100)
+
 Train a Mixture of Gaussians classifier on dataset `a`, using `k` clusters.
+If requested, different types of clusters can be assumed:
+  `ctype=sphr`  assumes spherical clusters
+  `ctype=full`  assumes fully flexible covariance matrices
+The covariance matrices are regularized by adding `reg` to the diagonals
+of the covariance matrices.
+Finally, the EM algorithm is run for *at max* `nriters` iterations.
+
 """
-function mogc(k=3,ctype="full",nriters=100,reg=0.0001)
+function mogc(k=3,ctype="full",reg=0.0001,nriters=100)
     return generativec(mogm(k,ctype,nriters,reg))
 end
-function mogc(a::Prdataset,k=3,ctype="full",nriters=100,reg=0.0001)
+function mogc(a::Prdataset,k=3,ctype="full",reg=0.0001,nriters=100)
     return a*mogc(k,ctype,nriters,reg)
 end
 
