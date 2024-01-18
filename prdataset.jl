@@ -14,7 +14,7 @@ scatterd(c)
 
 using Plots 
 
-export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotm!,plotc!,mse,gendats,gendatsin
+export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotc!,mse,gendats,gendatsin
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
