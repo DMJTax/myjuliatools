@@ -1,6 +1,6 @@
 using Distributions
 
-export RandUniformSphere, dd_threshold, dd_auc, gendatoc, target_class
+export RandUniformSphere, dd_threshold, dd_auc, gendatoc, target_class, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
 
 """
         RandUniformSphere(N,D)
@@ -101,7 +101,6 @@ function gendatoc(x_t,x_o=nothing)
 end
 
 """
-
    a = target_class(x,lab)
 
 Extract the class `lab` from dataset `x` and make it the target class.
@@ -124,5 +123,55 @@ function target_class(x::Prdataset,lab="target")
     return out
 end
 
+"""
+    w = gauss_dd(a, fracrej, reg)
 
+Fit a Gaussian distribution `w` on dataset `a` such that a fraction
+`fracrej` of the data will be labeled "outlier", and the rest "target".
+If needed, the Gaussian can be regularized by adding a value `reg` to
+the diagonal matrix.
+"""
+function gauss_dd(fracrej=0.1, reg=0.0)
+    params = Dict{String,Any}("map"=>gaussm(reg), "fracrej"=>fracrej)
+    return Prmapping("Gaussian DD","untrained",fitDensityDD!,predictDensityDD,params,nothing)
+end
+function gauss_dd(a::Prdataset, fracrej=0.1, reg=0.0)
+    return a*gauss_dd(fracrej,reg)
+end
+"""
+    w = mog_dd(a, fracrej, k)
+    w = mog_dd(a, fracrej, k, reg=0, nriters=100)
+
+Fit a Mixture of Gaussian distribution `w` on dataset `a` such that a fraction
+`fracrej` of the data will be labeled "outlier", and the rest "target".
+The number of Gaussian clusters is defined by `k`.
+the diagonal matrix.
+"""
+function mog_dd(fracrej=0.1, k=3, reg=0.0, nriters=100)
+    params = Dict{String,Any}("map"=>mogm(k,"full",reg,nriters), "fracrej"=>fracrej)
+    return Prmapping("MoG DD","untrained",fitDensityDD!,predictDensityDD,params,nothing)
+end
+function mog_dd(a::Prdataset, fracrej=0.1, k=3, reg=0.0, nriters=100)
+    return a*mog_dd(fracrej, k, reg, nriters)
+end
+function fitDensityDD!(w,a)
+    u = w.data["map"]
+    fracrej = w.data["fracrej"]
+    map = a*u
+    pred = a*map
+    w.data["threshold"] = dd_threshold(+pred, fracrej)
+    w.data["map"] = map
+    w.labels = ["target"; "outlier"]
+    w.nrin = size(a,2)
+    w.nrout = 2
+    return w
+end
+function predictDensityDD(w,a)
+    n = size(a,1)
+    map = w.data["map"]
+    threshold = w.data["threshold"]
+    pred = a*map
+    out = [+pred repeat([threshold], n)]
+    return out
+end
 

@@ -3,7 +3,8 @@ using Random
 export mogm,mogc
 
 """
-   w = mogm(a,k,ctype)
+   w = mogm(a,k) \
+   w = mogm(a,k,ctype="full", reg=0.0001, nriters=100)
 
 Fit a Mixture of Gaussians on dataset `a` with `k` components. The
 components are fitted using EM, resulting in a set of `k` means,
@@ -14,14 +15,17 @@ cluster probabilities.
 Finally, `ctype` defines the shape of the covariance matrices that you can impose on each of the Gaussian clusters:
 ctype = "sphr"    spherical clusters
 ctype = "full"    Gaussian clusters with a full covariance matrix per cluster
+The covariance matrices are regularized by adding `reg` to the diagonals
+of the covariance matrices.
+Finally, the EM algorithm is run for *at max* `nriters` iterations.
 
 """
-function mogm(k=3,ctype="full",nriters=100,reg=0.0001)
+function mogm(k::Int=3,ctype="full",reg=0.0001,nriters::Int=100)
     params = Dict{String,Any}("k"=>k,"covtype"=>ctype,"nriters"=>nriters,"reg"=>reg)
     return Prmapping("Mixture of Gaussians","untrained",fitMOG!,predictMOG,params,nothing)
 end
-function mogm(a::Prdataset,k=3,ctype="full",nriters=100,reg=0.0001)
-    return a*mogm(k,ctype,nriters,reg)
+function mogm(a::Prdataset,k=3,ctype="full",reg=0.0001,nriters=100)
+    return a*mogm(k,ctype,reg,nriters)
 end
 function fitMOG!(w,a)
     mog = deepcopy(w.data)
@@ -153,12 +157,21 @@ function mog_update!(mog,x,nriters=100,reg=0.0001)
 end
 """
      w = mogc(a,k)
+     w = mogc(a,k,ctype="full",reg=0.0001,nriters=100)
+
 Train a Mixture of Gaussians classifier on dataset `a`, using `k` clusters.
+If requested, different types of clusters can be assumed:
+  `ctype=sphr`  assumes spherical clusters
+  `ctype=full`  assumes fully flexible covariance matrices
+The covariance matrices are regularized by adding `reg` to the diagonals
+of the covariance matrices.
+Finally, the EM algorithm is run for *at max* `nriters` iterations.
+
 """
-function mogc(k=3,ctype="full",nriters=100,reg=0.0001)
-    return generativec(mogm(k,ctype,nriters,reg))
+function mogc(k=3,ctype="full",reg=0.0001,nriters=100)
+    return generativec(mogm(k,ctype,reg,nriters))
 end
-function mogc(a::Prdataset,k=3,ctype="full",nriters=100,reg=0.0001)
-    return a*mogc(k,ctype,nriters,reg)
+function mogc(a::Prdataset,k=3,ctype="full",reg=0.0001,nriters=100)
+    return a*mogc(k,ctype,reg,nriters)
 end
 
