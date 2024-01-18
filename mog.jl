@@ -20,7 +20,7 @@ of the covariance matrices.
 Finally, the EM algorithm is run for *at max* `nriters` iterations.
 
 """
-function mogm(k=3,ctype="full",reg=0.0001,nriters=100)
+function mogm(k::Int=3,ctype="full",reg=0.0001,nriters::Int=100)
     params = Dict{String,Any}("k"=>k,"covtype"=>ctype,"nriters"=>nriters,"reg"=>reg)
     return Prmapping("Mixture of Gaussians","untrained",fitMOG!,predictMOG,params,nothing)
 end
