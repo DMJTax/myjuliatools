@@ -3,7 +3,7 @@ using Random
 export mogm,mogc
 
 """
-   w = mogm(a,k)
+   w = mogm(a,k) \
    w = mogm(a,k,ctype="full", reg=0.0001, nriters=100)
 
 Fit a Mixture of Gaussians on dataset `a` with `k` components. The
@@ -25,7 +25,7 @@ function mogm(k::Int=3,ctype="full",reg=0.0001,nriters::Int=100)
     return Prmapping("Mixture of Gaussians","untrained",fitMOG!,predictMOG,params,nothing)
 end
 function mogm(a::Prdataset,k=3,ctype="full",reg=0.0001,nriters=100)
-    return a*mogm(k,ctype,nriters,reg)
+    return a*mogm(k,ctype,reg,nriters)
 end
 function fitMOG!(w,a)
     mog = deepcopy(w.data)
@@ -169,9 +169,9 @@ Finally, the EM algorithm is run for *at max* `nriters` iterations.
 
 """
 function mogc(k=3,ctype="full",reg=0.0001,nriters=100)
-    return generativec(mogm(k,ctype,nriters,reg))
+    return generativec(mogm(k,ctype,reg,nriters))
 end
 function mogc(a::Prdataset,k=3,ctype="full",reg=0.0001,nriters=100)
-    return a*mogc(k,ctype,nriters,reg)
+    return a*mogc(k,ctype,reg,nriters)
 end
 
