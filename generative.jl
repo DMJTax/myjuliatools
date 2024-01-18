@@ -31,8 +31,8 @@ and the rows of matrix `B`. If `A` has size `NxD`, and `B` size `MxD`,
 then output matrix is `NxM`.
 """
 function sqeucldistm(A,B)
-    n,dim = size(A)
-    n2,dim2 = size(B)
+    n,dim = matlabsize(A)
+    n2,dim2 = matlabsize(B)
     if (dim!=dim2)
         error("sqeucldistm: Matrix dimensions do not match.")
     end
@@ -44,6 +44,16 @@ function sqeucldistm(A,B)
         end
     end
     return D
+end
+function matlabsize(x)
+    sz = size(x)
+    if length(sz)==0
+        return 1,1
+    elseif length(sz)==1
+        return sz[1],1
+    else
+        return sz
+    end
 end
 
 """
