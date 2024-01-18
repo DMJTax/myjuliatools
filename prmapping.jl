@@ -129,8 +129,12 @@ function plotm!(w::Prmapping, gridsize = 30)
         contour!(xrange,yrange,pred[:,:,i]')
     end
 end
-# Plot a classification function
-function plotc!(w::Prmapping, gridsize = 30)
+"""
+   plotc!(w)
+   plotc!(w,gridsize=30)
+Plot the decision boundary of a classification function in the current plot.
+"""
+function plotc!(w::Prmapping, gridsize::Int = 30)
     # dummy input to get to the nr of outputs:
     dummy = Prdataset([0.0 0.0])*w
     C = size(dummy,2)
