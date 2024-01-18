@@ -515,10 +515,17 @@ function scatterd(a::Prdataset)
     else # we have a classification dataset
         C = nrclasses(a)
         leg = reshape(a.lablist,(1,C)) # scatter is very picky
-        if (a.name == nothing)
-            h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,xlabel=xlabel,ylabel=ylabel)
+        if (a.name == nothing) # set a good name
+            thisname = " "
         else
-            h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=a.name,xlabel=xlabel,ylabel=ylabel)
+            thisname = a.name
+        end
+        # allow for 1D data
+        if size(a.data,2)==1
+            n = size(a.data,1)
+            h = scatter(a.data[:,1],zeros(n,1),group=a.nlab,label=leg,title=thisname,xlabel=xlabel,ylabel=ylabel)
+        else
+            h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=thisname,xlabel=xlabel,ylabel=ylabel)
         end
     end
     return h
