@@ -273,7 +273,9 @@ end
 Fit a Quadratic Discriminant classifier on dataset `a`.
 """
 function qdc(reg=0.0)
-    return generativec(gaussm(reg))
+    out = generativec(gaussm(reg))
+    out.name = "Quadratic discr."
+    return out
 end
 function qdc(a::Prdataset,reg=0.0)
     return a*qdc(reg)
