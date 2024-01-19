@@ -265,7 +265,7 @@ Get the data matrix from Prdataset `a`.
 function Base.:+(a::Prdataset)
     return a.data
 end
-function ndims(a::Prdataset)
+function Base.ndims(a::Prdataset)
     return 2  # no mercy
 end
 function Base.size(a::Prdataset,dim)
