@@ -25,7 +25,7 @@
 using Statistics
 using Plots
 
-export Prmapping,prmapping,plotr!,plotm!,plotc!,sequential
+export Prmapping,prmapping,getname,plotr!,plotm!,plotc!,sequential
 
 # Define a basic prmapping
 # # DXD: should I make explicit somewhere if we're dealing with
@@ -73,6 +73,9 @@ function Base.show(io::IO, ::MIME"text/plain", w::Prmapping)
     #    print("predict: ",String(Symbol(w.predict)))
     #end
     #print(")")
+end
+function getname(w::Prmapping)
+   return w.name
 end
 
 # The training step
