@@ -111,7 +111,7 @@ function plotr!(w::Prmapping)
 end
 # Plot the output of a mapping
 function plotm!(w::Prmapping, gridsize = 30)
-    if w.nrin>=2
+    if w.nrin>2
         error("Only 1D or 2D mappings are allowed.")
     end
     if w.nrin==1
@@ -139,7 +139,7 @@ function plotm!(w::Prmapping, gridsize = 30)
             end
         end
         for i=1:C
-            contour!(xrange,yrange,pred[:,:,i]')
+            contour!(xrange,yrange,pred[:,:,i]',cbar=false)
         end
     end
 end
