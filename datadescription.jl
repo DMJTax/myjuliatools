@@ -197,7 +197,7 @@ function mog_dd(fracrej=0.1, k=3, reg=0.0, nriters=100)
     return Prmapping("MoG DD","untrained",fitDensityDD!,predictDensityDD,params,nothing)
 end
 function mog_dd(a::Prdataset, fracrej=0.1, k=3, reg=0.0, nriters=100)
-    return a*mog_dd(fracrej, k, reg, nriters)
+    return target_class(a)*mog_dd(fracrej, k, reg, nriters)
 end
 function fitDensityDD!(w,a)
     u = w.data["map"]
