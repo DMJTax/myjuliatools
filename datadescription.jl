@@ -1,6 +1,6 @@
 using Distributions
 
-export RandUniformSphere, dd_threshold, dd_auc, gendatoc, target_class, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
+export RandUniformSphere, dd_threshold, istarget, dd_auc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
 
 """
         RandUniformSphere(N,D)
@@ -41,11 +41,24 @@ function dd_threshold(values,fracrej)
 end
 
 """
+    I = istarget(a)
+Returns a bitvector indicating whether each object in `a` is from the
+target class (`1`) or not (`0`).
+"""
+function istarget(a::Prdataset)
+    J = findfirst(a.lablist .== "target")
+    return (a.nlab .== J)
+end
+
+"""
       dd_auc(score,y)
+      dd_auc(a)
 
 Compute the area under the ROC curve. We require a vector of `score`s
 and a vector of ground truth labels `y`. The labels should be +1 or -1,
 the score should be high to predict a positive class. 
+
+Alternatively, you can also supply a one-class dataset `a`.
 This version does not take ties into account...
 """
 function dd_auc(phat,y)
@@ -67,6 +80,15 @@ function dd_auc(phat,y)
     meany = (TPr[1:end-1] .+ TPr[2:end])./2 
 
     return meany'*dx
+end
+function dd_auc(a::Prdataset)
+    J = findfirst(a.featlab .== "target")
+    if J==nothing
+        @warn("No feature `target` is found, use feature 1 instead.")
+        J = 1
+    end
+    lab = 2 .*istarget(a) .- 1
+    return dd_auc(a.data[:,J],lab)
 end
 
 """
@@ -124,6 +146,29 @@ function target_class(x::Prdataset,lab="target")
 end
 
 """
+   a = oc_set(x,lab)
+
+Relabel the class `lab` from dataset `x` to `target` and make the other
+classes the outlier class.
+Default `lab=1`
+"""
+function oc_set(x::Prdataset,lab=1)
+    if isa(lab,String)
+        nr = findfirst(x.lablist .== lab)
+    elseif isinteger(lab)
+        nr = lab
+    else
+        error("Type of label is not suitable.")
+    end
+    J = 2 .- (x.nlab .== nr)
+    out = deepcopy(x)
+    out.nlab = J
+    out.lablist = ["target", "outlier"]
+    return out
+end
+
+
+"""
     w = gauss_dd(a, fracrej, reg)
 
 Fit a Gaussian distribution `w` on dataset `a` such that a fraction
@@ -136,7 +181,7 @@ function gauss_dd(fracrej=0.1, reg=0.0)
     return Prmapping("Gaussian DD","untrained",fitDensityDD!,predictDensityDD,params,nothing)
 end
 function gauss_dd(a::Prdataset, fracrej=0.1, reg=0.0)
-    return a*gauss_dd(fracrej,reg)
+    return target_class(a)*gauss_dd(fracrej,reg)
 end
 """
     w = mog_dd(a, fracrej, k)
