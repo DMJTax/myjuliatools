@@ -1,6 +1,6 @@
 using Distributions
 
-export RandUniformSphere, dd_threshold, istarget, dd_auc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
+export RandUniformSphere, dd_threshold, istarget, dd_roc, dd_auc,roc_hull,interp,roc2prc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
 
 """
         RandUniformSphere(N,D)
@@ -51,6 +51,59 @@ function istarget(a::Prdataset)
 end
 
 """
+    TPr,FPr,thr = dd_roc(a::Prdataset)
+Return the True Positive rate `TPr` and False Positive rate `FPr` for
+the scores that are stored in dataset `a` (combined with ground-truth
+labels "target" and "outlier". Also the corresponding threshold `thr`
+is returned.
+
+```
+a = oc_set(gendatb())
+w = gauss_dd(a)
+TPr,FPr = dd_roc(a*w)
+plot(FPr,TPr,xlabel="FPr",ylabel="TPr")
+```
+"""
+function dd_roc(a::Prdataset)
+    small=1e-5
+    # get the GT labels
+    lab = istarget(a)
+    Nt = sum(lab)
+    No = size(a,1)-Nt
+    # get the scores
+    J = findfirst(a.featlab .== "target")
+    if J==nothing
+        @warn("No feature `target` is found, use feature 1 instead.")
+        J = 1
+    end
+    score = a.data[:,J]
+
+    # sort the scores and keep labels consistent
+    I = sortperm(score)
+    score = score[I]
+    lab = lab[I]
+    #lab = [0.0; lab[I]]
+
+    # define the thresholds
+    thr = ([score[1]-small;score] .+ [score;score[end]+small])./2
+
+    # and the real TPr and FPr
+    TPr = 1 .- cumsum(lab)./Nt
+    FPr = 1 .- cumsum(1 .-lab)./No
+
+    # fix the final point:
+    TPr = [1.0; TPr]
+    FPr = [1.0; FPr]
+
+    # reorder to start with point (0,0)?
+    TPr = TPr[end:-1:1]
+    FPr = FPr[end:-1:1]
+    thr = thr[end:-1:1]
+
+    return TPr, FPr, thr
+end
+
+"""
       dd_auc(score,y)
       dd_auc(a)
 
@@ -90,6 +143,62 @@ function dd_auc(a::Prdataset)
     lab = 2 .*istarget(a) .- 1
     return dd_auc(a.data[:,J],lab)
 end
+"""
+        newtpr,newfpr = roc_hull(TPr,FPr)
+Find the convex hull of the ROC curve defined by `TPr` and `FPr`. It is assumed that the values are ordered in ascending order (as you obtain from `dd_roc()`).
+"""
+function roc_hull(tpr,fpr)
+    if (tpr[1]!=0.0) || (fpr[1]!=0.0)
+        error("ROC_HULL is expecting the first TPr and FPR to be 0 (output of dd_roc).")
+    end
+    n = length(tpr)
+    # first point:
+    newtpr = [0.0]
+    newfpr = [0.0]
+    # go through all next points:
+    curr = 1
+    while (curr<n)
+        # find the steepest line
+        rho = (tpr[curr+1:end].-tpr[curr])./(fpr[curr+1:end].-fpr[curr])
+        mini = argmax(rho)
+        push!(newtpr,tpr[curr+mini])
+        push!(newfpr,fpr[curr+mini])
+        curr += mini
+    end
+    return newtpr,newfpr
+end
+"""
+       y = interp(x::Vector,n::Int)
+Linearly interpolate the values in vector `x` with `n` new values.
+For instance:
+  x = [1, 2, 5]
+  y = [1.0, 1.5, 2.0, 3.5, 5.0]
+"""
+function interp(x::Vector,n::Int)
+    L = length(x)
+    I = (1:n)./n
+    out = zeros(n,L-1)
+    for i=1:L-1
+        dx = x[i+1]-x[i]
+        out[:,i] = x[i] .+ dx*I
+    end
+    out = [x[1]; out[:]]
+    return out
+end
+"""
+        prec,rec = roc2prc(tpr,fpr,n)
+Convert the ROC curve defined by `TPr` and `FPr` into a Precision Recall
+curve, defined by `prec` and `rec`. For this, the number of positive
+`Pos` and negative `Neg` samples should be given: `n = [Pos Neg]`.
+"""
+function roc2prc(tpr::Vector,fpr::Vector,n)
+    TP = tpr*n[1]
+    FP = fpr*n[2]
+    prec = TP./(TP.+FP)
+    rec = tpr
+    return prec,rec
+end
+
 
 """
     a = gendatoc(x_t,x_o)
