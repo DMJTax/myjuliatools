@@ -45,6 +45,9 @@ end
 Create a Prdataset `a` from data matrix `X` and targets `y`. If `y` is categorical (i.e. a vector containing integers or strings) it becomes a classification dataset, otherwise a regression dataset.
 """
 function Prdataset(X,y,name=nothing)
+    if isa(X,Vector)
+        X = X[:,:]
+    end
     N,dim = size(X)
     if (length(y)!=N)
         error("Number of labels/targets does not fit number of samples.")
