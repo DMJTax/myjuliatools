@@ -9,7 +9,7 @@ Fit a Linear Discriminant Analysis classifier on dataset `a`.
 """
 function ldc(lambda=0.0)
     params = Dict{String,Any}("lambda"=>lambda)
-    return Prmapping("Linear Discriminant Classifier","untrained",fitLDA!,predictLDA,params,nothing)
+    return Prmapping("LDA Classifier","untrained",fitLDA!,predictLDA,params,nothing)
 end
 function ldc(a::Prdataset,lambda=0.0)
     return a*ldc(lambda)

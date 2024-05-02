@@ -25,7 +25,7 @@
 using Statistics
 using Plots
 
-export Prmapping,prmapping,plotr!,plotm!,plotc!,sequential
+export Prmapping,prmapping,getname,plotr!,plotm!,plotc!,sequential
 
 # Define a basic prmapping
 # # DXD: should I make explicit somewhere if we're dealing with
@@ -74,6 +74,9 @@ function Base.show(io::IO, ::MIME"text/plain", w::Prmapping)
     #end
     #print(")")
 end
+function getname(w::Prmapping)
+   return w.name
+end
 
 # The training step
 function Base.:*(a::Prdataset,w::Prmapping)
@@ -111,22 +114,36 @@ function plotr!(w::Prmapping)
 end
 # Plot the output of a mapping
 function plotm!(w::Prmapping, gridsize = 30)
-    # dummy input to get to the nr of outputs:
-    dummy = Prdataset([0.0 0.0])*w
-    C = size(dummy,2)
-    xl = xlims()
-    yl = ylims()
-    xrange = range(xl[1],xl[2],length=gridsize)
-    yrange = range(yl[1],yl[2],length=gridsize)
-    pred = zeros(gridsize,gridsize,C)
-    for i=1:gridsize
-        for j=1:gridsize
-            input = Prdataset([xrange[i] yrange[j]])
-            pred[i,j,:] = +(input*w)
-        end
+    if w.nrin>2
+        error("Only 1D or 2D mappings are allowed.")
     end
-    for i=1:C
-        contour!(xrange,yrange,pred[:,:,i]')
+    if w.nrin==1
+        # dummy input to get to the nr of outputs:
+        dummy = Prdataset([0.0])*w
+        C = size(dummy,2)
+        xl = xlims()
+        xrange = range(xl[1],xl[2],length=gridsize)
+        a = Prdataset(collect(xrange))
+        pred = a*w
+        plot!(xrange,+pred)
+    else
+        # dummy input to get to the nr of outputs:
+        dummy = Prdataset([0.0 0.0])*w
+        C = size(dummy,2)
+        xl = xlims()
+        yl = ylims()
+        xrange = range(xl[1],xl[2],length=gridsize)
+        yrange = range(yl[1],yl[2],length=gridsize)
+        pred = zeros(gridsize,gridsize,C)
+        for i=1:gridsize
+            for j=1:gridsize
+                input = Prdataset([xrange[i] yrange[j]])
+                pred[i,j,:] = +(input*w)
+            end
+        end
+        for i=1:C
+            contour!(xrange,yrange,pred[:,:,i]',cbar=false)
+        end
     end
 end
 """

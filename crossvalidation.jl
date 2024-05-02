@@ -1,8 +1,9 @@
 export crossval, crossval!
 """
+    I = crossval(K,N)
     I = crossval(K,y)
 Perform `K`-fold crossvalidation (possibly stratified if a vector of
-labels `y` is supplied)
+labels `y` is supplied, otherwise it is assumed we have `N` objects.)
 
 Standard application would be:
 ```julia-repl

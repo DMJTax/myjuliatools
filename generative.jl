@@ -21,8 +21,9 @@ This can be done in Julia like:
 
 using LinearAlgebra
 using Statistics
+using StatsBase
 
-export sqeucldistm, gaussm, parzenm, qdc, parzenc, bayesc, generativem, generativec
+export sqeucldistm, matlabsize, gaussm, parzenm, knnm, qdc, parzenc, knnc, bayesc, generativem, generativec
 
 """
        D = sqeucldistm(A,B)
@@ -31,8 +32,8 @@ and the rows of matrix `B`. If `A` has size `NxD`, and `B` size `MxD`,
 then output matrix is `NxM`.
 """
 function sqeucldistm(A,B)
-    n,dim = size(A)
-    n2,dim2 = size(B)
+    n,dim = matlabsize(A)  # avoid problems with 1D datasets
+    n2,dim2 = matlabsize(B)
     if (dim!=dim2)
         error("sqeucldistm: Matrix dimensions do not match.")
     end
@@ -44,6 +45,23 @@ function sqeucldistm(A,B)
         end
     end
     return D
+end
+"""
+    sz = matlabsize(x)
+Return the size of matrix, vector or scalar `x`. When `x` is a scalar,
+the size will be `1x1` (instead of `()`), and when `x` is a vector it
+will be `Nx1` (instead of `(N,)`. Otherwise it will be the normal size
+of `x`.
+"""
+function matlabsize(x)
+    sz = size(x)
+    if length(sz)==0
+        return 1,1
+    elseif length(sz)==1
+        return sz[1],1
+    else
+        return sz
+    end
 end
 
 """
@@ -86,7 +104,7 @@ end
 # Parzen
 """
     w = parzenm(a,h=1)
-Estimate a Parzen density on dataset `a`.
+Estimate a Parzen density with width parameter `h` on dataset `a`.
 """
 function parzenm(h=1.0)
     params = Dict{String,Any}("h"=>h)
@@ -110,6 +128,36 @@ function predictParzen(w, a)
     D = sqeucldistm(+a, X)
     pred = mean(exp.(Z * D),dims=2)
     return pred
+end
+
+"""
+    w = knnm(a,k=1)
+Estimate a k-Nearest Neighbor density (with `k` neighbors) on dataset `a`.
+Note that the density is not normalised; it is basically just p = 1/dist-to-kNN.
+"""
+function knnm(k::Int=1)
+    params = Dict{String,Any}("k"=>k)
+    return Prmapping("kNN density","untrained",fitKNNm!,predictKNNm,params,nothing)
+end
+function knnm(a::Prdataset,k=1)
+    return a*knnm(k)
+end
+function fitKNNm!(w,a)
+    if w.data["k"]>size(a,1)
+        error("More neighbors requested than available in the dataset.")
+    end
+    # the only thing we can do is storing the training data
+    w.data["traindata"] = +a
+    w.nrin = size(a,2)
+    w.nrout = 1
+    return w
+end
+function predictKNNm(w,a)
+    k = w.data["k"]
+    X = w.data["traindata"]
+    D = sort(sqeucldistm(+a,X),dims=2)
+    out = 1.0 ./D[:,[k]]
+    return out
 end
 
 """
@@ -225,7 +273,9 @@ end
 Fit a Quadratic Discriminant classifier on dataset `a`.
 """
 function qdc(reg=0.0)
-    return generativec(gaussm(reg))
+    out = generativec(gaussm(reg))
+    out.name = "Quadratic discr."
+    return out
 end
 function qdc(a::Prdataset,reg=0.0)
     return a*qdc(reg)
@@ -241,5 +291,41 @@ function parzenc(h=1.0)
 end
 function parzenc(a::Prdataset,h=1.0)
     return a*parzenc(h)
+end
+"""
+    w = knnc(a,k=1)
+Fit a k-Nearest Neighbor classifier, with the number of neighbors `k`,
+on dataset `a`.
+"""
+function knnc(k::Int=1)
+    params = Dict{String,Any}("k"=>k)
+    return Prmapping("kNN classifier","untrained",fitKNNc!,predictKNNc,params)
+end
+function knnc(a::Prdataset,k=1)
+    return a*knnc(k)
+end
+function fitKNNc!(w,a)
+    # the only thing we can do is storing the training data
+    w.data["traindata"] = a
+    w.nrin = size(a,2)
+    w.nrout = nrclasses(a)
+    w.labels = a.lablist
+    return w
+end
+function predictKNNc(w,a)
+    k = w.data["k"]
+    X = w.data["traindata"]
+    y = X.nlab
+    n = size(a,1)
+    C = w.nrout
+    pred = zeros(n,C)
+    D = sqeucldistm(+a,+X)
+    # Ooph, do we really need a loop here?
+    for i=1:n
+       J = sortperm(D[i,:])  # sort all distances
+       lab = y[J[1:k]]       # find the labels of the k nearest objects
+       pred[i,:] .= proportions(lab,C)
+    end
+    return pred
 end
 
