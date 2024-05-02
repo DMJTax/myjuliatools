@@ -14,7 +14,7 @@ scatterd(c)
 
 using Plots 
 
-export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotc!,mse,gendats,gendatsin
+export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotc!,mse,gendat
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
@@ -49,7 +49,7 @@ function Prdataset(X,y,name=nothing)
         X = X[:,:]
     end
     N,dim = size(X)
-    if (length(y)!=N)
+    if (size(y,1)!=N)
         error("Number of labels/targets does not fit number of samples.")
     end
     # ? check for countable (so no float/double/...?
@@ -528,7 +528,7 @@ function scatterd(a::Prdataset)
             n = size(a.data,1)
             h = scatter(a.data[:,1],zeros(n,1),group=a.nlab,label=leg,title=thisname,xlabel=xlabel,ylabel=ylabel)
         else
-            h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=thisname,xlabel=xlabel,ylabel=ylabel)
+            h = scatter(a.data[:,1],a.data[:,2],group=a.nlab,label=leg,title=thisname,xlabel=xlabel,ylabel=ylabel,aspect_ratio=:equal)
         end
     end
     return h
@@ -543,3 +543,18 @@ function mse(a::Prdataset)
 end
 
 
+function gendat(a::Prdataset,n::Vector{Int})
+    N = length(n)
+    if (N != length(a.lablist))
+        error("Number of classes does not match length of N.")
+    end
+    J1 = findall(a.nlab.==1)
+    J = randperm(length(J1)) 
+    I = J1[J[1:n[1]]]
+    for i=2:N
+        Ji = findall(a.nlab.==i)
+        J = randperm(length(Ji)) 
+        I = [I; Ji[J[1:n[i]]]]
+    end
+    return a[I,:]
+end
