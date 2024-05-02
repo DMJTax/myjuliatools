@@ -6,25 +6,36 @@
 export linearr
 
 """
-    w = linearr(a, degree=1)
+    w = linearr(a, reg=0, usebias=true)
 
-Fit a linear least square regression on dataset `a`. If requested, with `degree` higher order terms of the data features can also be used.
+Fit a linear least square regression on dataset `a`, possibly
+regularized by `reg`. Per default a bias term is included, but if that
+is not needed, then use `usebias=false`.
 """
-function linearr(degree=1)
+function linearr(reg=0.0, usebias=true)
     # This is the untrained mapping
-    params = Dict{String,Any}("degree"=>degree)
+    params = Dict{String,Any}("reg"=>reg, "usebias"=>usebias)
     return Prmapping("Linear Regression","untrained",fitLS!,predictLS,params,nothing)
 end
 # The call directly with some dataset:
-function linearr(a::Prdataset,degree=1)
-    return a*linearr(degree)
+function linearr(a::Prdataset,reg=0.0, usebias=true)
+    return a*linearr(reg,usebias)
 end
 function fitLS!(w, a)
     # Unpack the parameters
-    degree = w.data["degree"] # ungainly storage
+    reg = w.data["reg"] # ungainly storage
+    usebias = w.data["usebias"]
     # Do the work
-    X = a.data.^(collect(0:degree)')
-    beta = inv(X'*X)*X'*a.targets
+    if usebias
+        n = size(a.data,1)
+        X = [ones(n,1) a.data]
+    end
+    if (reg>0.0)
+        dim = size(X,2)
+        beta = inv(X'*X .+ reg*I(dim))*X'*a.targets
+    else
+        beta = inv(X'*X)*X'*a.targets
+    end
     # Store the results
     w.data["weights"] = beta
     w.nrin = size(a,2)
@@ -33,10 +44,13 @@ function fitLS!(w, a)
 end
 function predictLS(w, a)
     # Unpack the parameters
-    degree = w.data["degree"] # ungainly storage
+    usebias = w.data["usebias"] # ungainly storage
     w = w.data["weights"] # ungainly storage
-    X = a.data.^(collect(0:degree)')
     # Do the work
+    if usebias
+        n = size(a.data,1)
+        X = [ones(n,1) a.data]
+    end
     out = X*w
     return out
 end
