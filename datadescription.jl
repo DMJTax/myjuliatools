@@ -1,6 +1,6 @@
 using Distributions
 
-export RandUniformSphere, dd_threshold, istarget, dd_roc, dd_auc,roc_hull,interp,roc2prc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
+export RandUniformSphere, dd_threshold, istarget, dd_roc, dd_auc,auc,roc_hull,interp,roc2prc, dd_prc,dd_auprc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
 
 """
         RandUniformSphere(N,D)
@@ -65,11 +65,8 @@ plot(FPr,TPr,xlabel="FPr",ylabel="TPr")
 ```
 """
 function dd_roc(a::Prdataset)
-    small=1e-5
     # get the GT labels
     lab = istarget(a)
-    Nt = sum(lab)
-    No = size(a,1)-Nt
     # get the scores
     J = findfirst(a.featlab .== "target")
     if J==nothing
@@ -77,12 +74,25 @@ function dd_roc(a::Prdataset)
         J = 1
     end
     score = a.data[:,J]
+    # here the real work is done:
+    TPr, FPr, thr = dd_roc(score,lab)
 
+    return TPr, FPr, thr
+end
+"""
+    TPr,FPr,thr = dd_roc(score,lab)
+Return the True Positive rate `TPr` and False Positive rate `FPr` for
+the prediction `scores` and the ground-truth labels `lab`. The label
+vector should be a BitVector with 0 and 1's.
+"""
+function dd_roc(score,lab)
+    small=1e-5
+    Nt = sum(lab)
+    No = length(lab)-Nt
     # sort the scores and keep labels consistent
     I = sortperm(score)
     score = score[I]
     lab = lab[I]
-    #lab = [0.0; lab[I]]
 
     # define the thresholds
     thr = ([score[1]-small;score] .+ [score;score[end]+small])./2
@@ -108,40 +118,36 @@ end
       dd_auc(a)
 
 Compute the area under the ROC curve. We require a vector of `score`s
-and a vector of ground truth labels `y`. The labels should be +1 or -1,
-the score should be high to predict a positive class. 
+and a vector of ground truth labels `y`. The label vector `y` should be
+a BitVector, where 1 is target, the score should be high to predict a
+positive class. 
 
 Alternatively, you can also supply a one-class dataset `a`.
 This version does not take ties into account...
 """
 function dd_auc(phat,y)
-    # first sort the scores, and reorder y accordingly
-    I = sortperm(vec(phat),rev=true)
-    phat = phat[I]
-    y = y[I]
-
-    # for the ROC I need the TPr and the FPr
-    pos = (y .== +1)
-    neg = (y .== -1)
-    TPr = cumsum(pos)./sum(pos)
-    FPr = cumsum(neg)./sum(neg)
-    # make sure it starts with (0,0)
-    TPr = [0.0; TPr]
-    FPr = [0.0; FPr]
-    # do the integration
-    dx = diff(FPr)
-    meany = (TPr[1:end-1] .+ TPr[2:end])./2 
-
-    return meany'*dx
+    TPr,FPr,thr = dd_roc(phat,y)
+    return auc(FPr,TPr)
 end
+
 function dd_auc(a::Prdataset)
     J = findfirst(a.featlab .== "target")
     if J==nothing
         @warn("No feature `target` is found, use feature 1 instead.")
         J = 1
     end
-    lab = 2 .*istarget(a) .- 1
+    lab = istarget(a)
     return dd_auc(a.data[:,J],lab)
+end
+"""
+    A = auc(x,y)
+Compute area under the curve that is parametrized by vectors `x` and
+`y`. The values in `x` should be sorted in ascending order.
+"""
+function auc(x::Vector,y::Vector)
+    dx = diff(x)
+    meany = (y[1:end-1] + y[2:end])./2
+    return meany'*dx
 end
 """
         newtpr,newfpr = roc_hull(TPr,FPr)
@@ -191,12 +197,48 @@ Convert the ROC curve defined by `TPr` and `FPr` into a Precision Recall
 curve, defined by `prec` and `rec`. For this, the number of positive
 `Pos` and negative `Neg` samples should be given: `n = [Pos Neg]`.
 """
-function roc2prc(tpr::Vector,fpr::Vector,n)
+function roc2prc(tpr::Vector,fpr::Vector,n::Vector)
     TP = tpr*n[1]
     FP = fpr*n[2]
     prec = TP./(TP.+FP)
     rec = tpr
     return prec,rec
+end
+"""
+      precision, recall = dd_prc(score,y)
+      precision, recall = dd_prc(a)
+
+Compute the precision-recall curve. We require a vector of `score`s and
+a vector of ground truth labels `y`. The label vector `y` should be a
+BitVector, where 1 is target, the score should be high to predict a
+positive class. 
+
+Alternatively, you can also supply a one-class dataset `a`.
+This version does not take ties into account...
+"""
+function dd_prc(phat,y)
+    TPr,FPr,thr = dd_roc(phat,y)
+    Nt = sum(y)  # nr of positives
+    No = length(y) - Nt
+    prec,rec = roc2prc(TPr,FPr,[Nt,No])
+    return prec,rec
+end
+function dd_prc(a::Prdataset)
+    J = findfirst(a.featlab .== "target")
+    if J==nothing
+        @warn("No feature `target` is found, use feature 1 instead.")
+        J = 1
+    end
+    lab = istarget(a)
+    return dd_prc(a.data[:,J],lab)
+end
+"""
+     A = dd_aucprc(a)
+Compute the area under the precision-recall curve.
+"""
+function dd_auprc(a::Prdataset)
+    prec,rec = dd_prc(a)
+    return auc(rec,prec)
 end
 
 
