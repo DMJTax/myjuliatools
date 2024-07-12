@@ -6,7 +6,7 @@ using Statistics
 using Distributions
 using Formatting
 
-export Results, results, makeStringLabel, squeeze, average
+export Results, results, makeStringLabel, squeeze, average, nanmean, nanstd
 
 """
    R = Results(data,namesdim1,namesdim2, ...)
@@ -91,6 +91,11 @@ function Base.show(io::IO, ::MIME"text/plain", R::Results)
 end
 
 # Helper functions for showing:
+"""
+    s = makeStringLabel(v)
+Create a vector of strings from a vector `v`. `v` can hold anything,
+like integers, floats, of strings. 
+"""
 function makeStringLabel(v)
    N = length(v)
    out = Vector{String}(undef,N)
@@ -249,11 +254,11 @@ same, or are independently drawn from a distribution:
                     that only a T-test on the differences in the
                     means is performed)
 
-For this ttest per default a significance level of 5% is used.
+For this ttest per default a significance level of α=5% is used.
 
 """
 function average(R::Results,dim,boldtype=nothing,testtype="dep")
-    α=0.05
+    α = 0.05
     meanres = nanmean(R.res,dim)
     stdres = nanstd(R.res,dim)
     if (boldtype==nothing)
@@ -379,7 +384,6 @@ function ttest_indep(o1,o2)
     return p
 end
 
-
 # permutedims....
 function Base.permutedims(R::Results,perm)
    res = permutedims(R.res,perm)
@@ -417,7 +421,7 @@ function fixaverageresults(R::Results)
 end
 
 # Most important: show the results
-function Base.show(R::Results, outputtype="text", numformat="%4.2f")
+function Base.show(R::Results, outputtype="text", numformat="%4.1f")
    if ndims(R)==3
       R = fixaverageresults(R)
       if (R==nothing)
