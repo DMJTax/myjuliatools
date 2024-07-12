@@ -310,6 +310,9 @@ function Base.getindex(a::Prdataset,I1,I2)
     end
     return out
 end
+function Base.axes(a::Prdataset,dim)
+    return size(a,dim)
+end
 function Base.vcat(a::Prdataset, b::Prdataset)
     if size(a,2) != size(b,2)
         error("Number of features of datasets do not match.")
@@ -534,7 +537,12 @@ function scatterd(a::Prdataset)
     return h
 end
 
-# Mean squared error
+"""
+Mean squared error
+   e =  mse(a::Prdataset)
+Compute the mean squared error between the targets stored in prdataset
+`a`, and the values stored in `a.data`.
+"""
 function mse(a::Prdataset)
     if !isregression(a)
         error("MSE is defined for regression problems.")
