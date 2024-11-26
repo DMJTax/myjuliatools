@@ -4,8 +4,8 @@ using LinearAlgebra
 export pca
 
 """
-    w = pca(a)
-    w = pca(frac)
+    w = pca(a,n)
+    w = pca(a,frac)
 
 Fit a PCA on dataset `a`, retain `n` dimensions. If `frac` (between 0 and 1) is given, this fraction of variance is retained.
 """
