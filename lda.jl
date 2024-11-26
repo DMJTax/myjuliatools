@@ -51,7 +51,7 @@ function predictLDA(w, a)
     for i=1:c
         df = a.data .- means[[i],:]
         dist = (df*invC) .* df 
-        pred[:,i] = exp.(- sum(dist,dims=2))
+        pred[:,i] = exp.(- sum(dist,dims=2)) .* priors[i]
     end
     # store it:
     out = deepcopy(a)

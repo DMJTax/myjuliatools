@@ -14,7 +14,7 @@ scatterd(c)
 
 using Plots 
 
-export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,scatterd,plotc!,mse,gendat
+export Prdataset,isregression,isclassification,isunlabeled,renumlab,isvector,iscategorical,setdata!,getlabels,setlabels!,nrclasses,classsizes,seldat,setident,genlab,findclasses,genclass,classpriors,bayes,normalise,classc,labeld,testc,confmat,scatterd,plotc!,mse,gendat
 
 # Make a simplified version of a PRTools dataset in Julia
 mutable struct Prdataset
@@ -36,11 +36,12 @@ function Prdataset(data,targets,nlab,lablist)
     return Prdataset(data,targets,nlab,lablist,nothing,nothing)
 end
 function Prdataset(data)
-    return Prdataset(data,nothing,nothing,nothing,nothing,nothing,nothing)
+    return Prdataset(data,nothing)
 end
 
 """
    a = Prdataset(X,y)
+   a = Prdataset(X,y,name)
 
 Create a Prdataset `a` from data matrix `X` and targets `y`. If `y` is categorical (i.e. a vector containing integers or strings) it becomes a classification dataset, otherwise a regression dataset.
 """
@@ -49,6 +50,10 @@ function Prdataset(X,y,name=nothing)
         X = X[:,:]
     end
     N,dim = size(X)
+    # Are labels provided?
+    if (y==nothing)
+        y = zeros(N,1)
+    end
     if (size(y,1)!=N)
         error("Number of labels/targets does not fit number of samples.")
     end
@@ -119,8 +124,11 @@ end
 
 """ 
     lab,lablist = renumlab(y)
+    lab1,lab2,lablist = renumlab(y1,y2)
 
 Convert a vector of labels `y` (can be numeric or strings) to a vector of numerical labels `lab` (which is always an integer `1:C`), and a list of `C` class labels `lablist`.
+
+When two vectors of labels `y1` and `y2` are supplied, a consistent `lablist` is created that matches the classes of both `y1` and `y2`.
 """ 
 function renumlab(y)
     # make it a vector
@@ -310,6 +318,9 @@ function Base.getindex(a::Prdataset,I1,I2)
     end
     return out
 end
+function Base.axes(a::Prdataset,dim)
+    return size(a,dim)
+end
 function Base.vcat(a::Prdataset, b::Prdataset)
     if size(a,2) != size(b,2)
         error("Number of features of datasets do not match.")
@@ -478,6 +489,13 @@ end
 function classc()
     return Prmapping("fixed",nothing,normalise,nothing,nothing)
 end
+"""
+    lab = labeld(pred)
+    lab = labeld(a*w)
+
+Get the predicted labels `lab` from the output of classifier `w` on
+dataset `a`: `pred=a*w`.
+"""
 function labeld(a::Prdataset)
     if !isclassification(a)
         error("labeld only defined for classification datasets.")
@@ -489,6 +507,13 @@ function labeld(a::Prdataset)
         return a.featlab[I]
     end
 end
+"""
+    e = testc(pred)
+    e = testc(a*w)
+
+Get the classification error `e` from the output of classifier `w` on
+dataset `a`: `pred=a*w`.
+"""
 function testc(a::Prdataset)
     if !isclassification(a)
         error("testc only defined for classification datasets.")
@@ -498,10 +523,38 @@ function testc(a::Prdataset)
 end
 
 """
+    C,lablist = confmat(pred)
+    C,lablist = confmat(a*w)
+
+Get the confusion matrix `C` from the output of classifier `w` on
+dataset `a`: `pred=a*w`. Element C_ij indicates the number of samples
+that were originally labeled as class `i` is classified as class `j`.
+"""
+function confmat(x::Prdataset)
+    if !isclassification(x)
+        error("Confmat is only defined for classification datasets.")
+    end
+    nlab_pred,nlab_true,lablist = renumlab(labeld(x),getlabels(x))
+    C = length(lablist)  # nr of classes
+    conf = zeros(C,C)
+    for i=1:C
+        # each row gives the number of predictions per true class
+        pred_i = nlab_pred[findall(nlab_true.==i)]
+        for j=1:C
+            conf[i,j] = sum(pred_i.==j)
+        end
+    end
+    return conf,lablist
+end
+
+
+"""
    scatterd(a)
 Scatter dataset `a`. If dataset `a` is a classification dataset, a 2D scatterplot is generated. If dataset `a` is a regression dataset, only a 1D plot can be made.
 """
 function scatterd(a::Prdataset)
+    # define some replacements if names, or feature names are not
+    # defined.
     xlabel=""; ylabel=""
     if a.featlab!=nothing
         xlabel=a.featlab[1]
@@ -509,20 +562,20 @@ function scatterd(a::Prdataset)
             ylabel=a.featlab[2]
         end
     end
+    if (a.name==nothing)
+        thisname = " "
+    else
+        thisname = a.name
+    end
     if isregression(a) # we have a regression problem
-        if (a.name==nothing)
-            h = scatter(a.data[:,1],a.targets,xlabel=xlabel)
+        if (size(a.data,2)==1)  # make a 1D plot of data and targets
+            h = scatter(a.data[:,1],a.targets,title=thisname,xlabel=xlabel)
         else
-            h = scatter(a.data[:,1],a.targets,title=a.name,xlabel=xlabel)
+            h = scatter(a.data[:,1],a.data[:,2],zcolor=a.targets,title=thisname,xlabel=xlabel)
         end
     else # we have a classification dataset
         C = nrclasses(a)
         leg = reshape(a.lablist,(1,C)) # scatter is very picky
-        if (a.name == nothing) # set a good name
-            thisname = " "
-        else
-            thisname = a.name
-        end
         # allow for 1D data
         if size(a.data,2)==1
             n = size(a.data,1)
@@ -534,7 +587,12 @@ function scatterd(a::Prdataset)
     return h
 end
 
-# Mean squared error
+"""
+Mean squared error
+   e =  mse(a::Prdataset)
+Compute the mean squared error between the targets stored in prdataset
+`a`, and the values stored in `a.data`.
+"""
 function mse(a::Prdataset)
     if !isregression(a)
         error("MSE is defined for regression problems.")
@@ -542,19 +600,36 @@ function mse(a::Prdataset)
     return mean((a.data .- a.targets).^2)
 end
 
-
-function gendat(a::Prdataset,n::Vector{Int})
-    N = length(n)
-    if (N != length(a.lablist))
-        error("Number of classes does not match length of N.")
+"""
+     a = gendat(b,n)
+Subsample dataset `b` by sampling `n` samples. For a regression dataset, just a random sample of `n` objects is drawn. For a classification dataset a vector of integers can be supplied, such that `n[i]` samples are drawn from class i.
+"""
+function gendat(a::Prdataset,n)
+    if isregression(a)
+        # just randomly subsample
+        if (n>size(a,1))
+            error("Insufficient number of objects in dataset.")
+        end
+        J = randperm(size(a,1))
+        return a[J[1:n],:]
+    else
+        # we should have a classification problem
+        N = length(n)
+        if (N==1)  # assume we want to have that amount per class
+            N = length(a.lablist)
+            n = repeat([n],N)
+        end
+        if (N != length(a.lablist))
+            error("Number of classes does not match length of N.")
+        end
+        J1 = findall(a.nlab.==1)
+        J = randperm(length(J1)) 
+        I = J1[J[1:n[1]]]
+        for i=2:N
+            Ji = findall(a.nlab.==i)
+            J = randperm(length(Ji)) 
+            I = [I; Ji[J[1:n[i]]]]
+        end
+        return a[I,:]
     end
-    J1 = findall(a.nlab.==1)
-    J = randperm(length(J1)) 
-    I = J1[J[1:n[1]]]
-    for i=2:N
-        Ji = findall(a.nlab.==i)
-        J = randperm(length(Ji)) 
-        I = [I; Ji[J[1:n[i]]]]
-    end
-    return a[I,:]
 end

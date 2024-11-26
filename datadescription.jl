@@ -1,6 +1,6 @@
 using Distributions
 
-export RandUniformSphere, dd_threshold, istarget, dd_roc, dd_auc,auc,roc_hull,interp,roc2prc, dd_prc,dd_auprc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, fitDensityDD!, predictDensityDD
+export RandUniformSphere, dd_threshold, istarget, dd_roc, dd_auc,auc,roc_hull,interp,roc2prc, dd_prc,dd_auprc, gendatoc, target_class, oc_set, gauss_dd, mog_dd, parzen_dd, fitDensityDD!, predictDensityDD
 
 """
         RandUniformSphere(N,D)
@@ -369,5 +369,20 @@ function predictDensityDD(w,a)
     pred = a*map
     out = [+pred repeat([threshold], n)]
     return out
+end
+
+"""
+    w = parzen_dd(a, fracrej, h)
+
+Fit a Parzen distribution `w` on dataset `a` such that a fraction
+`fracrej` of the data will be labeled "outlier", and the rest "target".
+The width of the Parzen kernel is given by `h`.
+"""
+function parzen_dd(fracrej=0.1, h=1.0)
+    params = Dict{String,Any}("map"=>parzenm(h), "fracrej"=>fracrej)
+    return Prmapping("Parzen DD","untrained",fitDensityDD!,predictDensityDD,params,nothing)
+end
+function parzen_dd(a::Prdataset, fracrej=0.1, h=1.0)
+    return target_class(a)*parzen_dd(fracrej,h)
 end
 

@@ -13,8 +13,10 @@ mapping is for each of the samples of the dataset, the (unnormalised)
 cluster probabilities.  
 
 Finally, `ctype` defines the shape of the covariance matrices that you can impose on each of the Gaussian clusters:
-ctype = "sphr"    spherical clusters
-ctype = "full"    Gaussian clusters with a full covariance matrix per cluster
+
+- `ctype = "sphr"`    spherical clusters
+- `ctype = "full"`    Gaussian clusters with a full covariance matrix per cluster
+
 The covariance matrices are regularized by adding `reg` to the diagonals
 of the covariance matrices.
 Finally, the EM algorithm is run for *at max* `nriters` iterations.

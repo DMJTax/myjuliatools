@@ -4,9 +4,10 @@ module Restools
 
 using Statistics
 using Distributions
-using Formatting
+using Printf
+using Plots
 
-export Results, results, makeStringLabel, squeeze, average
+export Results, results, makeStringLabel,setdimnames!, squeeze, average, save, load, nanmean, nanstd
 
 """
    R = Results(data,namesdim1,namesdim2, ...)
@@ -16,12 +17,13 @@ Construct a Results structure from `data`. If `data` is an `N1 x N2 x N3` data m
 Example:
 ```
 dat = randn(5,3,10)
-R = Results(dat, ["LDA","QD","kNN","SVM","Adaboost"], ["Gaussian", "Iris", "MNIST"], collect(1:10))
+R = results(dat, ["LDA","QD","kNN","SVM","Adaboost"], ["Gaussian", "Iris", "MNIST"], collect(1:10))
 # Or, shorter:
-R = Results(dat, ["LDA","QD","kNN","SVM","Adaboost"], ["Gaussian", "Iris", "MNIST"], 10)
+R = results(dat, ["LDA","QD","kNN","SVM","Adaboost"], ["Gaussian", "Iris", "MNIST"], 10)
 S = average(R,3)  # average over the third dimension
 show(S)
 show(S')
+show(S,"graph")
 ```
 
 """
@@ -91,20 +93,56 @@ function Base.show(io::IO, ::MIME"text/plain", R::Results)
 end
 
 # Helper functions for showing:
-function makeStringLabel(v)
-   N = length(v)
-   out = Vector{String}(undef,N)
-   if (v[1] isa String)
-      maxwidth = maximum(length.(v))
-      labelformat = sprintf1("%%%ds", maxwidth)
-      for i=1:N
-         out[i] = sprintf1(labelformat, v[i])
-      end
-      return out
-   else
-      out = makeStringLabel( string.(v))
-   end
-   return out
+"""
+    s = makeStringLabel(v)
+    s = makeStringLabel(v,fixedwidth)
+
+Create a vector of strings from a vector `v`. `v` can hold anything,
+like integers, floats, of strings. 
+If `fixedwidth` is supplied, the width is forced to have such width,
+otherwise it depends on the elements in `v` (ie it becomes the largest
+width).
+"""
+function makeStringLabel(v,fixedwidth=nothing)
+    # Given a string, we only put it in a vector:
+    if (v isa String)
+        return [v]
+    end
+    # Given a vector, we convert each of the elements:
+    N = length(v)
+    out = Vector{String}(undef,N)
+    if (v[1] isa String)
+        # if it is already a string, make sure the strings are equal
+        # width:
+        if (fixedwidth==nothing)
+            maxwidth = maximum(length.(v))
+        else
+            maxwidth = fixedwidth
+        end
+        #labelformat = sprintf1("%%%ds", maxwidth)
+        labelformat = Printf.Format("%"*string(maxwidth)*"s")
+        for i=1:N
+            out[i] = Printf.format(labelformat, v[i])[1:maxwidth]
+        end
+        return out
+    else
+        # Convert the elements to a vector:
+        return makeStringLabel( string.(v), fixedwidth)
+    end
+end
+"""
+    R = setdimnames!(R::Results,names...)
+Define the names for the different dimensions as `names`.
+"""
+function setdimnames!(R::Results,names...)
+    if (names[1] isa Vector)
+        R.dimnames = names[1]
+    elseif (length(names)==length(size(R)))
+        R.dimnames = collect(names)
+    else
+        error("Number of dimension names does not fit the Results size.")
+    end
+    return
 end
 
 """
@@ -202,6 +240,18 @@ function squeeze(R::Results)
    end
    return Results(res,dim,dimnames)
 end
+# Special function to add one dummy dimension
+function add1dim(R::Results)
+    sz = size(R)
+    res = deepcopy(R.res)
+    dim = deepcopy(R.dim)
+    dimnames = deepcopy(R.dimnames)
+    # now go
+    res = reshape(res,(sz...,1))
+    append!(dim,["1"])
+    append!(dimnames,["newdim"])
+    return Results(res,dim,dimnames)
+end
 
 # Very important: average (+std) of results:
 function nanmean(x)
@@ -249,11 +299,11 @@ same, or are independently drawn from a distribution:
                     that only a T-test on the differences in the
                     means is performed)
 
-For this ttest per default a significance level of 5% is used.
+For this ttest per default a significance level of α=5% is used.
 
 """
 function average(R::Results,dim,boldtype=nothing,testtype="dep")
-    α=0.05
+    α = 0.05
     meanres = nanmean(R.res,dim)
     stdres = nanstd(R.res,dim)
     if (boldtype==nothing)
@@ -379,7 +429,6 @@ function ttest_indep(o1,o2)
     return p
 end
 
-
 # permutedims....
 function Base.permutedims(R::Results,perm)
    res = permutedims(R.res,perm)
@@ -391,109 +440,230 @@ function Base.permutedims(R::Results,perm)
 end
 # Overload  R' to switch dimension 1 and 2
 function Base.adjoint(R::Results)
-   perm = collect(1:ndims(R))
-   perm[1:2] = [2;1];
-   return permutedims(R,perm)
+    perm = collect(1:ndims(R))
+    perm[1:2] = [2;1];
+    return permutedims(R,perm)
 end
 function fixaverageresults(R::Results)
-   if ndims(R)==3
-      # check if we have a 'mean/std/Ibold' feature
-      avgdim = (R.dimnames .== "Average")
-      # check if the dim == ["Mean", "Std", "Ibold"]
-      if sum(avgdim)==1
-         I = findfirst(avgdim)
-         if I==1
-            R = permutedims(R,[2,3,1])
-         elseif I==2
-            R = permutedims(R,[1,3,2])
-         end
-         return R
-      else
-         return nothing
-      end
-   else
-      error("I can only fix 3D matrices.")
-   end
+    if ndims(R)==2
+        R = add1dim(R)
+    end
+    usestd = false
+    if ndims(R)==3
+        # check if we have a 'mean/std/Ibold' feature
+        avgdim = (R.dimnames .== "Average")
+        # check if the dim == ["Mean", "Std", "Ibold"]
+        if sum(avgdim)==1
+            I = findfirst(avgdim)
+            if I==1
+                R = permutedims(R,[2,3,1])
+            elseif I==2
+                R = permutedims(R,[1,3,2])
+            end
+            usestd = true
+        end
+        return R,usestd
+    else
+        return nothing,usestd
+    end
 end
 
 # Most important: show the results
-function Base.show(R::Results, outputtype="text", numformat="%4.2f")
-   if ndims(R)==3
-      R = fixaverageresults(R)
-      if (R==nothing)
-          error("I can only show 2D results.")
-      end
-      usestd = true
-   else
-      if ndims(R)!=2
-         error("Can only show 2D data for now.")
-      end
-      usestd = false
-   end
-   if (outputtype=="text")
-      hsep = " | "
-      newline = "\n"
-   elseif (outputtype=="latex")
-      hsep = " & "
-      newline = "\\\\\n"
-   else
-      error("This outputtype is not defined.")
-   end
+function Base.show(R::Results, outputtype="text", numformat="%4.1f")
+    if (ndims(R)==2) | (ndims(R)==3)
+        R,usestd = fixaverageresults(R)
+    else
+        error("Only 2D or 3D results can be shown.")
+    end
+    if (outputtype=="text")
+        hsep = " | "
+        newline = "\n"
+    elseif (outputtype=="latex")
+        hsep = " & "
+        newline = "\\\\\n"
+    elseif (outputtype=="graph")
+        # non-text output:
+        legend = R.dim[1]
+        xvals = R.dim[2]
+        xlab = R.dimnames[2]
+        if (length(size(R))==3) & (R.dimnames[3]=="Average")
+            plot(xvals,R.res[1,:,1],yerr=R.res[1,:,2],label=legend[1],xlabel=xlab)
+            for i=2:size(R,1)
+                plot!(xvals,R.res[i,:,1],yerr=R.res[i,:,2],label=legend[i])
+            end
+        else
+            plot(xvals,R.res[1,:,1],label=legend[1],xlabel=xlab)
+            for i=2:size(R,1)
+                plot!(xvals,R.res[i,:,1],label=legend[i])
+            end
+        end
+        return
+    else
+        error("This outputtype is not defined.")
+    end
 
-   # find the labels for the X and Y:
-   Xlabels = makeStringLabel(R.dim[2])
-   xwidth = length(Xlabels[1])
-   Ylabels = makeStringLabel(R.dim[1])
-   ywidth = length(Ylabels[1])
-   # fix the cell width
-   numwidth = length(sprintf1(numformat,3.1415))
-   if usestd
-      mnformat = sprintf1("%%%ds",numwidth)
-      stdformat = sprintf1(" (%%%ds)",numwidth)
-      cellwidth = 2*numwidth + 3
-      cellformat = sprintf1("%%%ds",cellwidth)
-      xwidth = max(xwidth, cellwidth)
-   else
-      xwidth = max(xwidth, numwidth)
-      cellformat = sprintf1("%%%ds",xwidth)
-   end
+    # find the labels for the X and Y:
+    Xlabels = makeStringLabel(R.dim[2])
+    xwidth = length(Xlabels[1])
+    Ylabels = makeStringLabel(R.dim[1])
+    ywidth = length(Ylabels[1])
+    # fix the cell width
+    numformat = Printf.Format(numformat)
+    numwidth = length(Printf.format(numformat,3.1415))
+    if usestd
+        mnformat = Printf.Format("%"*string(numwidth)*"s")
+        stdformat = Printf.Format(" (%"*string(numwidth)*"s)")
+        cellwidth = 2*numwidth + 3
+        cellformat = Printf.Format("%"*string(cellwidth)*"s")
+        xwidth = max(xwidth, cellwidth)
+    else
+        xwidth = max(xwidth, numwidth)
+        cellformat = Printf.Format("%"*string(xwidth)*"s")
+    end
+    # if needed, the labels for the dimensions:
+    dimnames = makeStringLabel(R.dimnames, ywidth)
 
-   # and here we go!
-   # The first header line:
-   print(repeat(" ",ywidth+1))
-   for i=1:length(Xlabels)
-      print(hsep)
-      print(sprintf1(cellformat,Xlabels[i]))
-   end
-   print(newline)
-   # separation line:
-   if (outputtype=="text")
-      print(repeat("-",ywidth+2))
-      for i=1:length(Xlabels)
-         print(sprintf1("+%s",repeat("-",xwidth+2)))
-      end
-      println("")
-   elseif (outputtype=="latex")
-      println("\\hline")
-   end
-   # now the ylabel with content of the table
-   for i=1:length(Ylabels)
-      print(sprintf1("%s ",Ylabels[i]))
-      for j=1:length(Xlabels)
-         print(hsep)
-         if usestd  # show mean+std results
-            usebold = (R.res[i,j,3]!=0.0)
-            s = sprintf1(numformat,R.res[i,j,1])
-            printstyled(sprintf1(mnformat,s),bold=usebold)
-            s = sprintf1(numformat,R.res[i,j,2])
-            printstyled(sprintf1(stdformat,s),bold=usebold)
-         else  # just show the bare value
-            s = sprintf1(numformat,R.res[i,j])
-            print(sprintf1(cellformat,s))
-         end
-      end
-      print(newline)
-   end
+    # and here we go!
+    # The 'zeroth' header line:
+    print(repeat(" ",ywidth)," \\ ",R.dimnames[2]) # print here the unabbreviated dimname
+    if (outputtype=="text")
+        println("")
+    elseif (outputtype=="latex")
+        println("\\\\")
+    end
+    # The first header line:
+    print(dimnames[1]*" ")
+    for i=1:length(Xlabels)
+        print(hsep)
+        print(Printf.format(cellformat,Xlabels[i]))
+    end
+    print(newline)
+    # separation line:
+    if (outputtype=="text")
+        print(repeat("-",ywidth+2))
+        for i=1:length(Xlabels)
+            print("+"*repeat("-",xwidth+2))
+        end
+        println("")
+    elseif (outputtype=="latex")
+        println("\\hline")
+    end
+    # now the ylabel with content of the table
+    for i=1:length(Ylabels)
+        print(Ylabels[i]*" ")
+        for j=1:length(Xlabels)
+            print(hsep)
+            if usestd  # show mean+std results
+                usebold = (R.res[i,j,3]!=0.0)
+                s = Printf.format(numformat,R.res[i,j,1])
+                printstyled(Printf.format(mnformat,s),bold=usebold)
+                s = Printf.format(numformat,R.res[i,j,2])
+                printstyled(Printf.format(stdformat,s),bold=usebold)
+            else  # just show the bare value
+                s = Printf.format(numformat,R.res[i,j])
+                print(Printf.format(cellformat,s))
+            end
+        end
+        print(newline)
+    end
 end
+
+"""
+   save(filename,R)
+
+Store the results object `R` in file `filename`.
+When the file already exists, an error occurs.
+"""
+function save(name::String,R::Results...)
+    # check the file-extension, and add it if necessary
+    if (length(name)>4) & (name[end-3:end]==".res")
+        fname = name
+    else
+        fname = name*".res"
+    end
+    # complain if it already exist:
+    if isfile(fname)
+        error("File $fname already exists!")
+    end
+    # go
+    for i=1:length(R)
+        writeResults!(fname,R[i],"var"*string(i))
+    end
+end
+"""
+    writeResults!(filename,R,varname)
+
+Write the results object `R` in file `filename`, under the name `varname`.
+
+"""
+function writeResults!(name::String,R::Results,varname="")
+    # check the file-extension, and add it if necessary
+    if (length(name)>4) & (name[end-3:end]==".res")
+        fname = name
+    else
+        fname = name*".res"
+    end
+    # go
+    res = R.res
+    dimvals = R.dim
+    dimnames = R.dimnames
+    # most basic: the results
+    h5write(fname,varname*"/res",res)
+    sz = size(res)
+    nrdims = length(sz)
+    # now write all dim values:
+    for i=1:nrdims
+        if isempty(dimvals[i])
+            val = collect(1:sz[i])
+        else
+            val = dimvals[i]
+        end
+        h5write(fname,varname*"/dim"*string(i),val)
+    end
+    # and the names
+    if isempty(dimnames)
+        dimnames = ["dim$i" for i in 1:D]
+    end
+    h5write(fname,varname*"/dimnames",dimnames)
+end
+
+"""
+   R = load(filename)
+
+Load the results object `R` from file `filename`.
+"""
+function load(name::String)
+    # check the file-extension, and add it if necessary
+    if (length(name)>4) & (name[end-3:end]==".res")
+        fname = name
+    else
+        fname = name*".res"
+    end
+    # complain if it does not exist:
+    if !isfile(fname)
+        error("Can not find file $fname !")
+    end
+    # now read it:
+    # what variables do we have?
+    fid = h5open(fname)
+    vars = keys(fid)
+    close(fid)
+    N = length(vars)
+    # read them one by one:
+    R = Vector{Any}(undef,N)
+    for i=1:N
+        res = h5read(fname,vars[i]*"/res")
+        nrdims = length(size(res))
+        dims = Vector{Any}(undef,nrdims)
+        for j=1:nrdims
+            dims[j] = h5read(fname,vars[i]*"/dim"*string(j))
+        end
+        dimnames = h5read(fname,vars[i]*"/dimnames")
+        # store it in a Results object
+        R[i] = results(res,dims...)
+    end
+    return R
+end
+
 
 end

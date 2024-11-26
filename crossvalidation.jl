@@ -1,4 +1,33 @@
-export crossval, crossval!
+export prcrossval,crossval, crossval!
+
+"""
+    prcrossval(a::Prdataset,u,k=10,testfun=testc)
+
+Apply k-fold crossvalidation on dataset `a` by training untrained Prmapping `u` on to the training folds, and evaluate the trained mapping on the test fold. For evaluation the `testfun` function is used.
+"""
+function prcrossval(a::Prdataset,u,nrfolds=10,testfun=testc)
+    if isa(u,Vector)
+        nrcl = length(u)
+    elseif isa(u,Prmapping)
+        u = [u]
+        nrcl = 1
+    else
+        error("Second input should be a (vector of) Prmapping(s).")
+    end
+    err = zeros(nrcl,nrfolds)
+    I = crossval(nrfolds,getlabels(a))
+    for j=1:nrfolds
+        Itr,Itst = crossval!(I)
+        x = a[Itr,:]
+        z = a[Itst,:]
+        for i = 1:nrcl
+            w = x*u[i]
+            err[i,j] = testfun(z*w)
+        end
+    end
+    return err
+end
+
 """
     I = crossval(K,N)
     I = crossval(K,y)
