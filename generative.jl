@@ -23,7 +23,7 @@ using LinearAlgebra
 using Statistics
 using StatsBase
 
-export sqeucldistm, matlabsize, gaussm, parzenm, knnm, qdc, parzenc, knnc, bayesc, generativem, generativec
+export sqeucldistm,gaussianKernel, matlabsize, gaussm, parzenm, knnm, qdc, parzenc, knnc, bayesc, generativem, generativec
 
 """
        D = sqeucldistm(A,B)
@@ -45,6 +45,16 @@ function sqeucldistm(A,B)
         end
     end
     return D
+end
+"""
+       K = gaussianKernel(A,B,sigma)
+Compute the Gaussian kernel between the rows of matrix `A` and `B`. 
+If `A` has size `NxD`, and `B` size `MxD`, then output matrix is `NxM`.
+"""
+function gaussianKernel(x1,x2,sigma)
+    D = sqeucldistm(+x1,+x2)
+    gamma = -1/(sigma*sigma)
+    return exp.(gamma.*D)
 end
 """
     sz = matlabsize(x)
@@ -124,9 +134,8 @@ function predictParzen(w, a)
     h = w.data["h"]
     X = w.data["X"]
     # compute
-    Z = -1.0 ./(h*h)
-    D = sqeucldistm(+a, X)
-    pred = mean(exp.(Z * D),dims=2)
+    K = gaussianKernel(+a, X, h)
+    pred = mean(K,dims=2)
     return pred
 end
 
@@ -165,7 +174,7 @@ end
        p = a*w
 Apply Bayes rule to the probabilities stored in `a`. The output of the
 mapping `w` is a  dataset `p` contains the posterior probabilities for
-the classes (where the class labels are stored in `b.featlab`.
+the classes (where the class labels are stored in `b.featlab`).
 """
 function bayesc()
     params = Dict{String,Any}()
