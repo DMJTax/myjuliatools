@@ -25,7 +25,7 @@
 using Statistics
 using Plots
 
-export Prmapping,prmapping,getname,plotr!,plotm!,plotc!,sequential
+export Prmapping,prmapping,getname,size,plotr!,plotm!,plotc!,unames,sequential
 
 # Define a basic prmapping
 # # DXD: should I make explicit somewhere if we're dealing with
@@ -77,6 +77,22 @@ end
 function getname(w::Prmapping)
    return w.name
 end
+function Base.size(w::Prmapping,dim)
+    if (dim==1)
+        return w.nrin
+    elseif (dim==2)
+        return w.nrout
+    else
+        return 1
+    end
+end
+function Base.size(w::Prmapping)
+    return (w.nrin,w.nrout)
+end
+function Base.length(w::Prmapping)
+    return 1
+end
+
 
 # The training step
 function Base.:*(a::Prdataset,w::Prmapping)
@@ -106,13 +122,27 @@ end
 
 
 # Plot a regression function
-function plotr!(w::Prmapping)
+"""
+      plotr!(w,gridsize=100)
+
+Plot the regression function defined by `w`. For more smooth plots, the `gridsize` may be adapted.
+"""
+function plotr!(w::Prmapping, gridsize=100)
     xl = xlims()
-    z = collect(xl[1]:0.1:xl[2])
+    z = collect(range(xl[1],xl[2],gridsize))
     out = Prdataset(z[:,:])*w
-    plot!(z,+out)
+    if (out.featlab==nothing)
+        plot!(z,+out)
+    else
+        plot!(z,+out,labels=permutedims(out.featlab))
+    end
 end
 # Plot the output of a mapping
+"""
+      plotm!(w,gridsize=100)
+
+Plot the output of the function defined by `w`. For more smooth plots, the `gridsize` may be adapted.
+"""
 function plotm!(w::Prmapping, gridsize = 30)
     if w.nrin>2
         error("Only 1D or 2D mappings are allowed.")
@@ -149,15 +179,13 @@ end
 """
    plotc!(w)
    plotc!(w,gridsize=30)
+
 Plot the decision boundary of a classification function in the current plot.
 """
 function plotc!(w::Prmapping, gridsize::Int = 30)
-    # dummy input to get to the nr of outputs:
-    dummy = Prdataset([0.0 0.0])*w
-    C = size(dummy,2)
-    if C!=2
-        error("Only two-class for now.")
-    end
+    # nr of classes/outputs:
+    C = size(w,2)
+    # predict the output of the classifiers over a grid of points:
     xl = xlims()
     yl = ylims()
     xrange = range(xl[1],xl[2],length=gridsize)
@@ -169,10 +197,35 @@ function plotc!(w::Prmapping, gridsize::Int = 30)
             pred[i,j,:] = +(input*w)
         end
     end
-    df = pred[:,:,1]-pred[:,:,2]
-    h = contour!(xrange,yrange,df[:,:,1]',levels=[0.0])
-    return h
+    # For two-class problems it is not hard:
+    if (C==2)
+        z = pred[:,:,1] .- pred[:,:,2]
+        contour!(xrange,yrange,z',levels=[0.0],linecolor=:black)
+    else
+        # but for more than two classes, we need to find
+        # the difference between the largest, and second largest
+        # output:
+        for i=1:C
+            z = pred[:,:,i] .- maximum(pred[:,:,1:end.!=i],dims=3)
+            contour!(xrange,yrange,dropdims(z,dims=3)',levels=[0.0])
+        end
+    end
 end
+
+"""
+    names = unames(u::Vector{Prmapping})
+
+Get the vector of names of the PrmappingsA stored in vector `u`.
+"""
+function unames(u::Vector{Prmapping})
+    n = length(u)
+    names = Vector{String}(undef,n)
+    for i=1:n
+        names[i] = u[i].name
+    end
+    return names
+end
+
 
 # Sequential mapping
 function fitSeq!(w,a)
